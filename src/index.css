@@ -1,0 +1,57 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: 'Inter', system-ui, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Marcellus', 'Cormorant Garamond', serif;
+
+  --color-navy-50: #f4f4f5;
+  --color-navy-100: #e2e2e4;
+  --color-navy-200: #c3c3c7;
+  --color-navy-300: #98989e;
+  --color-navy-400: #6b6b70;
+  --color-navy-500: #46464a;
+  --color-navy-600: #2c2c2f;
+  --color-navy-700: #1c1c1e;
+  --color-navy-800: #121214;
+  --color-navy-900: #0a0a0b;
+  --color-navy: #0a0a0b;
+
+  --color-gold-50: #fbf6ea;
+  --color-gold-100: #f3e6c2;
+  --color-gold-200: #e8d296;
+  --color-gold-300: #dcbd6c;
+  --color-gold-400: #d1ac52;
+  --color-gold-500: #c9a24b;
+  --color-gold-600: #ad8638;
+  --color-gold-700: #8a692c;
+  --color-gold-800: #664e21;
+  --color-gold-900: #443417;
+  --color-gold: #c9a24b;
+
+  --color-surface: #ffffff;
+  --color-surface-muted: #f7f7f5;
+
+  --color-status-confirmed: #16a34a;
+  --color-status-pending: #6b7280;
+  --color-status-urgent: #dc2626;
+  --color-status-progress: #d97706;
+}
+
+.dark {
+  --color-surface: #17171a;
+  --color-surface-muted: #1e1e22;
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  color-scheme: light;
+  transition: background-color 0.15s ease;
+}
+
+#root {
+  min-height: 100vh;
+}
