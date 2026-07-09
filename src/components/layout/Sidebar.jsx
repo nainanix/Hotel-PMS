@@ -1,4 +1,6 @@
+import { Link } from 'react-router-dom'
 import {
+  LayoutDashboard,
   CalendarRange,
   ClipboardList,
   Tag,
@@ -10,6 +12,7 @@ import {
 import NavItem from './NavItem'
 
 const NAV_ITEMS = [
+  { to: '/overview', label: 'Overview', icon: LayoutDashboard },
   { to: '/stay-view', label: 'Stay View', icon: CalendarRange },
   { to: '/reservations', label: 'Reservations', icon: ClipboardList },
   { to: '/rates', label: 'Rates', icon: Tag },
@@ -21,11 +24,11 @@ const NAV_ITEMS = [
 function Sidebar() {
   return (
     <aside className="flex h-screen w-64 shrink-0 flex-col bg-navy-900">
-      <div className="flex items-center px-6 py-7">
+      <Link to="/overview" className="flex items-center px-6 py-7 transition-opacity hover:opacity-80">
         <span className="font-display text-2xl tracking-[0.2em] text-white">
           EVOTEL
         </span>
-      </div>
+      </Link>
 
       <nav className="flex flex-1 flex-col gap-1 px-3">
         {NAV_ITEMS.map((item) => (

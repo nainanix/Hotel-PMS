@@ -49,9 +49,19 @@ body {
   margin: 0;
   font-family: var(--font-sans);
   color-scheme: light;
-  transition: background-color 0.15s ease;
 }
 
 #root {
   min-height: 100vh;
+}
+
+/* Keep light/dark toggling visually in sync — elements with their own
+   Tailwind transition utility (transition-colors, transition-transform,
+   etc.) take precedence over this via normal specificity, so this only
+   fills the gap for elements (borders, gridlines, plain text) that would
+   otherwise snap instantly while everything else fades. */
+*,
+*::before,
+*::after {
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }

@@ -48,6 +48,17 @@ export function getReservations() {
   return RESERVATIONS
 }
 
+// True if roomId already has a non-cancelled reservation overlapping the
+// given date range. Used to block double-bookings before they're created.
+export function hasRoomConflict(roomId, checkIn, checkOut) {
+  return RESERVATIONS.some(
+    (reservation) =>
+      reservation.roomId === roomId &&
+      reservation.status !== 'cancelled' &&
+      overlapsRange(reservation, checkIn, checkOut)
+  )
+}
+
 // Appends a new reservation to the in-memory store. Stands in for a POST to
 // a real reservations endpoint — callers should re-fetch (e.g. bump a state
 // key) after calling this so views relying on getStayViewData/etc. re-render.
@@ -153,6 +164,110 @@ export function getOccupancyStats() {
     maintenanceRooms,
     occupancyRate: Math.round((occupiedRooms / ROOMS.length) * 100),
   }
+}
+
+// Today's ADR (Average Daily Rate) — mean nightly rate across rooms
+// currently occupied. RevPAR (Revenue Per Available Room) follows the
+// standard formula: ADR × occupancy rate, expressed here as total nightly
+// revenue today spread across every room in inventory, occupied or not.
+export function getKeyMetrics(year, month) {
+  const activeReservations = RESERVATIONS.filter(isActiveToday)
+  const nightlyRevenueToday = activeReservations.reduce((sum, reservation) => {
+    const nights = nightsBetween(reservation.checkIn, reservation.checkOut) || 1
+    return sum + reservation.total / nights
+  }, 0)
+
+  const adr = activeReservations.length ? nightlyRevenueToday / activeReservations.length : 0
+  const revpar = ROOMS.length ? nightlyRevenueToday / ROOMS.length : 0
+
+  const monthStart = toISODate(new Date(year, month, 1))
+  const monthEnd = toISODate(new Date(year, month + 1, 1))
+  const monthlyRevenue = RESERVATIONS.filter(
+    (reservation) =>
+      reservation.status !== 'cancelled' && reservation.checkIn >= monthStart && reservation.checkIn < monthEnd
+  ).reduce((sum, reservation) => sum + reservation.total, 0)
+
+  return {
+    occupancyRate: getOccupancyStats().occupancyRate,
+    adr: Math.round(adr),
+    revpar: Math.round(revpar),
+    monthlyRevenue: Math.round(monthlyRevenue),
+  }
+}
+
+// Occupied-room count for each day of the given month — feeds the Overview
+// occupancy trend chart.
+export function getOccupancyByDay(year, month) {
+  const daysInMonth = new Date(year, month + 1, 0).getDate()
+  return Array.from({ length: daysInMonth }, (_, i) => {
+    const dateISO = toISODate(new Date(year, month, i + 1))
+    const occupiedRooms = new Set(
+      RESERVATIONS.filter(
+        (reservation) =>
+          reservation.status !== 'cancelled' &&
+          reservation.checkIn <= dateISO &&
+          reservation.checkOut > dateISO
+      ).map((reservation) => reservation.roomId)
+    ).size
+    return {
+      day: i + 1,
+      dateISO,
+      occupiedRooms,
+      rate: ROOMS.length ? Math.round((occupiedRooms / ROOMS.length) * 100) : 0,
+    }
+  })
+}
+
+// Total booked revenue grouped by room type, across all non-cancelled
+// reservations — feeds the Overview revenue-by-room-type chart.
+export function getRevenueByRoomType() {
+  const totals = new Map()
+  RESERVATIONS.filter((reservation) => reservation.status !== 'cancelled').forEach((reservation) => {
+    const room = getRoomById(reservation.roomId)
+    if (!room) return
+    totals.set(room.type, (totals.get(room.type) ?? 0) + reservation.total)
+  })
+  return Array.from(totals, ([type, revenue]) => ({ type, revenue }))
+}
+
+// Guest count by status (VIP / Returning / Corporate / New) — feeds the
+// Overview guest-mix chart.
+export function getGuestStatusBreakdown() {
+  const totals = new Map()
+  GUESTS.forEach((guest) => {
+    totals.set(guest.status, (totals.get(guest.status) ?? 0) + 1)
+  })
+  return Array.from(totals, ([status, count]) => ({ status, count }))
+}
+
+// Next `limit` upcoming arrivals (check-in today or later), joined with
+// guest/room display fields, soonest first.
+export function getUpcomingArrivals(limit = 5) {
+  return RESERVATIONS.filter(
+    (reservation) => reservation.status !== 'cancelled' && reservation.checkIn >= TODAY
+  )
+    .sort((a, b) => (a.checkIn < b.checkIn ? -1 : 1))
+    .slice(0, limit)
+    .map((reservation) => ({
+      ...reservation,
+      guestName: getGuestById(reservation.guestId)?.name ?? 'Unknown guest',
+      roomNumber: getRoomById(reservation.roomId)?.number ?? '—',
+    }))
+}
+
+// Next `limit` upcoming departures (check-out today or later), same shape
+// as getUpcomingArrivals.
+export function getUpcomingDepartures(limit = 5) {
+  return RESERVATIONS.filter(
+    (reservation) => reservation.status !== 'cancelled' && reservation.checkOut >= TODAY
+  )
+    .sort((a, b) => (a.checkOut < b.checkOut ? -1 : 1))
+    .slice(0, limit)
+    .map((reservation) => ({
+      ...reservation,
+      guestName: getGuestById(reservation.guestId)?.name ?? 'Unknown guest',
+      roomNumber: getRoomById(reservation.roomId)?.number ?? '—',
+    }))
 }
 
 export function getReservationSummaryStats() {

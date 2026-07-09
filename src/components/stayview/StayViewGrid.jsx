@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { Wrench } from 'lucide-react'
 import { getStayViewData } from '../../data/api'
 import { getDaysInMonth } from '../../utils/dates'
 import DateHeaderRow from './DateHeaderRow'
@@ -49,13 +50,16 @@ function StayViewGrid({ year, month, refreshKey, onCellClick, onBlockClick }) {
           .map((room) => (
             <div
               key={`maintenance-${room.id}`}
-              className="m-1.5 flex items-center rounded-md border border-dashed border-status-urgent/40 bg-status-urgent/10 px-2 text-xs font-medium text-status-urgent"
+              className="m-1.5 flex items-center gap-1.5 rounded-md border border-navy-200 bg-navy-50 px-2 text-xs font-medium text-navy-400 dark:border-navy-600 dark:bg-navy-800/50 dark:text-navy-400"
               style={{
                 gridColumn: `2 / ${daysInMonth + 2}`,
                 gridRow: roomIndexById.get(room.id) + 2,
+                backgroundImage:
+                  'repeating-linear-gradient(135deg, transparent, transparent 7px, rgba(120,120,130,0.09) 7px, rgba(120,120,130,0.09) 8px)',
               }}
             >
-              Under maintenance
+              <Wrench size={12} strokeWidth={1.75} className="shrink-0 text-gold-600 dark:text-gold-400" />
+              <span>Under maintenance</span>
             </div>
           ))}
 

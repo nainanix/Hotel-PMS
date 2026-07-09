@@ -9,6 +9,7 @@ import { useTheme } from '../../context/ThemeContext'
 import { getNotifications } from '../../data/api'
 
 const PAGE_TITLES = {
+  '/overview': 'Overview',
   '/stay-view': 'Stay View',
   '/reservations': 'Reservations',
   '/rates': 'Rates',

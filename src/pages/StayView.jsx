@@ -1,11 +1,12 @@
-import { useState } from 'react'
-import { Plus } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { Plus, PieChart, DollarSign, TrendingUp, Wallet } from 'lucide-react'
 import Button from '../components/ui/Button'
 import StatCard from '../components/ui/StatCard'
 import StayViewGrid from '../components/stayview/StayViewGrid'
 import MonthTabs from '../components/stayview/MonthTabs'
 import ReservationModal from '../components/stayview/ReservationModal'
-import { getOccupancyStats, getRooms, getGuests, addReservation } from '../data/api'
+import { getKeyMetrics, getRooms, getGuests, addReservation } from '../data/api'
+import { formatCurrency } from '../utils/format'
 
 function StayView() {
   const now = new Date()
@@ -13,7 +14,11 @@ function StayView() {
   const [refreshKey, setRefreshKey] = useState(0)
   const [modal, setModal] = useState(null) // { mode: 'create'|'view', prefill?, reservation? }
 
-  const stats = getOccupancyStats()
+  const metrics = useMemo(
+    () => getKeyMetrics(cursor.year, cursor.month),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [cursor.year, cursor.month, refreshKey]
+  )
   const rooms = getRooms()
   const guests = getGuests()
 
@@ -43,12 +48,11 @@ function StayView() {
         onBlockClick={(reservation) => setModal({ mode: 'view', reservation })}
       />
 
-      <div className="max-w-xs">
-        <StatCard
-          label="Today's Occupancy"
-          value={`${stats.occupancyRate}%`}
-          hint={`${stats.occupiedRooms} occupied · ${stats.availableRooms} available · ${stats.maintenanceRooms} maintenance`}
-        />
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard label="Occupancy" value={`${metrics.occupancyRate}%`} icon={PieChart} />
+        <StatCard label="ADR" value={formatCurrency(metrics.adr)} icon={DollarSign} hint="Average Daily Rate" />
+        <StatCard label="RevPAR" value={formatCurrency(metrics.revpar)} icon={TrendingUp} hint="Revenue per Available Room" />
+        <StatCard label="Monthly Revenue" value={formatCurrency(metrics.monthlyRevenue)} icon={Wallet} />
       </div>
 
       {modal && (

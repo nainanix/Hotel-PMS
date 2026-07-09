@@ -1,9 +1,11 @@
 import { useState } from 'react'
+import { AlertTriangle } from 'lucide-react'
 import Modal from '../ui/Modal'
 import Button from '../ui/Button'
 import Badge from '../ui/Badge'
 import { nightsBetween, offsetISODate, formatDateLong, addDays, parseISODate, toISODate } from '../../utils/dates'
 import { formatCurrency } from '../../utils/format'
+import { hasRoomConflict } from '../../data/api'
 
 const BASE_RATE = {
   'Deluxe King Room': 200,
@@ -79,7 +81,8 @@ function ReservationModal({ mode, guests, rooms, prefill, reservation, onClose, 
   const room = rooms.find((r) => r.id === roomId)
   const nights = Math.max(nightsBetween(checkIn, checkOut), 0)
   const total = room ? (BASE_RATE[room.type] ?? 200) * nights : 0
-  const canSubmit = guestId && roomId && nights > 0
+  const conflict = roomId && nights > 0 && hasRoomConflict(roomId, checkIn, checkOut)
+  const canSubmit = guestId && roomId && nights > 0 && !conflict
 
   function handleSubmit(e) {
     e.preventDefault()
@@ -146,6 +149,16 @@ function ReservationModal({ mode, guests, rooms, prefill, reservation, onClose, 
             <option value="pending">Pending</option>
           </select>
         </Field>
+
+        {conflict && (
+          <div className="flex items-start gap-2 rounded-xl bg-status-urgent/10 px-4 py-3 text-status-urgent">
+            <AlertTriangle size={16} strokeWidth={1.75} className="mt-0.5 shrink-0" />
+            <p>
+              Room {room?.number} is already booked for part of this date range. Choose different dates or
+              another room.
+            </p>
+          </div>
+        )}
 
         <div className="flex items-center justify-between rounded-xl bg-surface-muted px-4 py-3">
           <span className="text-navy-300 dark:text-navy-400">

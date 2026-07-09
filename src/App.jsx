@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { ThemeProvider } from './context/ThemeContext'
 import Layout from './components/layout/Layout'
+import Overview from './pages/Overview'
 import StayView from './pages/StayView'
 import Reservations from './pages/Reservations'
 import Rates from './pages/Rates'
@@ -15,7 +16,8 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route element={<Layout />}>
-            <Route index element={<Navigate to="/stay-view" replace />} />
+            <Route index element={<Navigate to="/overview" replace />} />
+            <Route path="overview" element={<Overview />} />
             <Route path="stay-view" element={<StayView />} />
             <Route path="reservations" element={<Reservations />} />
             <Route path="rates" element={<Rates />} />
