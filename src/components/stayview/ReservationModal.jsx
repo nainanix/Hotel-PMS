@@ -6,7 +6,7 @@ import Badge from '../ui/Badge'
 import DatePicker from '../ui/DatePicker'
 import { nightsBetween, offsetISODate, formatDateLong, addDays, parseISODate, toISODate } from '../../utils/dates'
 import { formatCurrency } from '../../utils/format'
-import { hasRoomConflict } from '../../data/api'
+import { hasRoomConflict, addGuest } from '../../data/api'
 
 const BASE_RATE = {
   'Deluxe King Room': 200,
@@ -26,14 +26,22 @@ function Field({ label, children }) {
 }
 
 function ReservationModal({ mode, guests, rooms, prefill, reservation, onClose, onCreate }) {
-  const [guestId, setGuestId] = useState(prefill?.guestId ?? guests[0]?.id ?? '')
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
   const [roomId, setRoomId] = useState(prefill?.roomId ?? rooms[0]?.id ?? '')
   const initialCheckIn = prefill?.checkIn ?? offsetISODate(0)
   const [checkIn, setCheckIn] = useState(initialCheckIn)
   const [checkOut, setCheckOut] = useState(
-    prefill?.checkOut ?? toISODate(addDays(parseISODate(initialCheckIn), 2))
+    prefill?.checkOut ?? toISODate(addDays(parseISODate(initialCheckIn), 1))
   )
   const [status, setStatus] = useState('confirmed')
+
+  // Check-out always follows check-in by one night until the guest picks a
+  // different check-out date themselves.
+  function handleCheckInChange(newCheckIn) {
+    setCheckIn(newCheckIn)
+    setCheckOut(toISODate(addDays(parseISODate(newCheckIn), 1)))
+  }
 
   if (mode === 'view' && reservation) {
     const room = rooms.find((r) => r.id === reservation.roomId)
@@ -83,12 +91,13 @@ function ReservationModal({ mode, guests, rooms, prefill, reservation, onClose, 
   const nights = Math.max(nightsBetween(checkIn, checkOut), 0)
   const total = room ? (BASE_RATE[room.type] ?? 200) * nights : 0
   const conflict = roomId && nights > 0 && hasRoomConflict(roomId, checkIn, checkOut)
-  const canSubmit = guestId && roomId && nights > 0 && !conflict
+  const canSubmit = firstName.trim() && lastName.trim() && roomId && nights > 0 && !conflict
 
   function handleSubmit(e) {
     e.preventDefault()
     if (!canSubmit) return
-    onCreate({ guestId, roomId, checkIn, checkOut, status, total })
+    const guest = addGuest({ name: `${firstName.trim()} ${lastName.trim()}` })
+    onCreate({ guestId: guest.id, roomId, checkIn, checkOut, status, total })
   }
 
   return (
@@ -105,15 +114,28 @@ function ReservationModal({ mode, guests, rooms, prefill, reservation, onClose, 
       }
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-4 text-sm">
-        <Field label="Guest">
-          <select className={inputClass} value={guestId} onChange={(e) => setGuestId(e.target.value)}>
-            {guests.map((guest) => (
-              <option key={guest.id} value={guest.id}>
-                {guest.name}
-              </option>
-            ))}
-          </select>
-        </Field>
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="First Name">
+            <input
+              type="text"
+              required
+              className={inputClass}
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
+              placeholder="Jordan"
+            />
+          </Field>
+          <Field label="Last Name">
+            <input
+              type="text"
+              required
+              className={inputClass}
+              value={lastName}
+              onChange={(e) => setLastName(e.target.value)}
+              placeholder="Ellis"
+            />
+          </Field>
+        </div>
 
         <Field label="Room">
           <select className={inputClass} value={roomId} onChange={(e) => setRoomId(e.target.value)}>
@@ -127,7 +149,7 @@ function ReservationModal({ mode, guests, rooms, prefill, reservation, onClose, 
 
         <div className="grid grid-cols-2 gap-4">
           <Field label="Check-in">
-            <DatePicker value={checkIn} onChange={setCheckIn} />
+            <DatePicker value={checkIn} onChange={handleCheckInChange} />
           </Field>
           <Field label="Check-out">
             <DatePicker value={checkOut} onChange={setCheckOut} />

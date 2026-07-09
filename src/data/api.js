@@ -53,6 +53,14 @@ export function getGuestById(guestId) {
   return GUESTS.find((guest) => guest.id === guestId)
 }
 
+// Appends a new guest to the in-memory store — used when a reservation is
+// created for someone not already in the guest directory.
+export function addGuest({ name, email = '', phone = '', status = 'New', lastStay = null }) {
+  const guest = { id: `guest-${Date.now()}`, name, email, phone, status, lastStay }
+  GUESTS.push(guest)
+  return guest
+}
+
 export function getReservations() {
   return RESERVATIONS
 }

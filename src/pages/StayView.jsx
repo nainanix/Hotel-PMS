@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react'
 import { Plus, PieChart, DollarSign, TrendingUp, Wallet } from 'lucide-react'
 import Button from '../components/ui/Button'
 import StatCard from '../components/ui/StatCard'
+import StatDetailModal from '../components/ui/StatDetailModal'
+import OccupancyBreakdown from '../components/ui/OccupancyBreakdown'
 import StayViewGrid from '../components/stayview/StayViewGrid'
 import MonthTabs from '../components/stayview/MonthTabs'
 import ReservationModal from '../components/stayview/ReservationModal'
@@ -15,6 +17,9 @@ import {
   addMaintenancePeriod,
   updateMaintenancePeriod,
   removeMaintenancePeriod,
+  getRoomStatusBreakdown,
+  getActiveRateBreakdown,
+  getRevenueByRoomTypeForMonth,
 } from '../data/api'
 import { formatCurrency } from '../utils/format'
 
@@ -23,6 +28,7 @@ function StayView() {
   const [cursor, setCursor] = useState({ year: now.getFullYear(), month: now.getMonth() })
   const [refreshKey, setRefreshKey] = useState(0)
   const [modal, setModal] = useState(null)
+  const [detail, setDetail] = useState(null)
   // modal shapes:
   //  { type: 'choice', room, dateISO }
   //  { type: 'reservation', mode: 'create'|'view', prefill?, reservation? }
@@ -35,6 +41,10 @@ function StayView() {
   )
   const rooms = getRooms()
   const guests = getGuests()
+  const monthLabel = new Date(cursor.year, cursor.month, 1).toLocaleDateString('en-US', {
+    month: 'long',
+    year: 'numeric',
+  })
 
   function refresh() {
     setRefreshKey((k) => k + 1)
@@ -82,10 +92,32 @@ function StayView() {
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Occupancy" value={`${metrics.occupancyRate}%`} icon={PieChart} />
-        <StatCard label="ADR" value={formatCurrency(metrics.adr)} icon={DollarSign} hint="Average Daily Rate" />
-        <StatCard label="RevPAR" value={formatCurrency(metrics.revpar)} icon={TrendingUp} hint="Revenue per Available Room" />
-        <StatCard label="Monthly Revenue" value={formatCurrency(metrics.monthlyRevenue)} icon={Wallet} />
+        <StatCard
+          label="Occupancy"
+          value={`${metrics.occupancyRate}%`}
+          icon={PieChart}
+          onClick={() => setDetail('occupancy')}
+        />
+        <StatCard
+          label="ADR"
+          value={formatCurrency(metrics.adr)}
+          icon={DollarSign}
+          hint="Average Daily Rate"
+          onClick={() => setDetail('adr')}
+        />
+        <StatCard
+          label="RevPAR"
+          value={formatCurrency(metrics.revpar)}
+          icon={TrendingUp}
+          hint="Revenue per Available Room"
+          onClick={() => setDetail('revpar')}
+        />
+        <StatCard
+          label="Monthly Revenue"
+          value={formatCurrency(metrics.monthlyRevenue)}
+          icon={Wallet}
+          onClick={() => setDetail('revenue')}
+        />
       </div>
 
       {modal?.type === 'choice' && (
@@ -131,6 +163,60 @@ function StayView() {
           onClose={() => setModal(null)}
           onSave={handleSaveMaintenance}
           onRemove={handleRemoveMaintenance}
+        />
+      )}
+
+      {detail === 'occupancy' && (
+        <StatDetailModal
+          title="Occupancy"
+          value={`${metrics.occupancyRate}%`}
+          hint="Today, across all rooms"
+          onClose={() => setDetail(null)}
+        >
+          <OccupancyBreakdown breakdown={getRoomStatusBreakdown()} />
+        </StatDetailModal>
+      )}
+
+      {detail === 'adr' && (
+        <StatDetailModal
+          title="Average Daily Rate"
+          value={formatCurrency(metrics.adr)}
+          hint="Mean nightly rate across occupied rooms today"
+          rows={getActiveRateBreakdown().map((r) => ({
+            label: r.guestName,
+            sublabel: `Room ${r.roomNumber}`,
+            value: formatCurrency(r.rate),
+          }))}
+          emptyLabel="No rooms currently occupied"
+          onClose={() => setDetail(null)}
+        />
+      )}
+
+      {detail === 'revpar' && (
+        <StatDetailModal
+          title="Revenue per Available Room"
+          value={formatCurrency(metrics.revpar)}
+          hint="RevPAR = ADR × Occupancy Rate"
+          rows={[
+            { label: 'Average Daily Rate', value: formatCurrency(metrics.adr) },
+            { label: 'Occupancy Rate', value: `${metrics.occupancyRate}%` },
+            { label: 'RevPAR', value: formatCurrency(metrics.revpar) },
+          ]}
+          onClose={() => setDetail(null)}
+        />
+      )}
+
+      {detail === 'revenue' && (
+        <StatDetailModal
+          title="Monthly Revenue"
+          value={formatCurrency(metrics.monthlyRevenue)}
+          hint={monthLabel}
+          rows={getRevenueByRoomTypeForMonth(cursor.year, cursor.month).map((r) => ({
+            label: r.type,
+            value: formatCurrency(r.revenue),
+          }))}
+          emptyLabel="No bookings this month"
+          onClose={() => setDetail(null)}
         />
       )}
     </div>
