@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Sparkles, RefreshCw, AlertCircle } from 'lucide-react'
 import StatCard from '../components/ui/StatCard'
+import StatDetailModal from '../components/ui/StatDetailModal'
 import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
 import { Table, Th, Td } from '../components/ui/Table'
@@ -23,12 +24,13 @@ function nextStatus(status) {
 
 function Housekeeping() {
   const [rooms, setRooms] = useState(() => getHousekeepingStatus())
+  const [detail, setDetail] = useState(null)
 
-  const counts = useMemo(
+  const byStatus = useMemo(
     () => ({
-      dirty: rooms.filter((r) => r.housekeeping.status === 'dirty').length,
-      'in-progress': rooms.filter((r) => r.housekeeping.status === 'in-progress').length,
-      clean: rooms.filter((r) => r.housekeeping.status === 'clean').length,
+      dirty: rooms.filter((r) => r.housekeeping.status === 'dirty'),
+      'in-progress': rooms.filter((r) => r.housekeeping.status === 'in-progress'),
+      clean: rooms.filter((r) => r.housekeeping.status === 'clean'),
     }),
     [rooms]
   )
@@ -56,9 +58,24 @@ function Housekeeping() {
   return (
     <div className="flex flex-col gap-6">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard label="Dirty" value={counts.dirty} icon={AlertCircle} />
-        <StatCard label="In Progress" value={counts['in-progress']} icon={RefreshCw} />
-        <StatCard label="Clean" value={counts.clean} icon={Sparkles} />
+        <StatCard
+          label="Dirty"
+          value={byStatus.dirty.length}
+          icon={AlertCircle}
+          onClick={() => setDetail('dirty')}
+        />
+        <StatCard
+          label="In Progress"
+          value={byStatus['in-progress'].length}
+          icon={RefreshCw}
+          onClick={() => setDetail('in-progress')}
+        />
+        <StatCard
+          label="Clean"
+          value={byStatus.clean.length}
+          icon={Sparkles}
+          onClick={() => setDetail('clean')}
+        />
       </div>
 
       <Table>
@@ -78,6 +95,11 @@ function Housekeeping() {
               <Td className="font-medium text-navy-600 dark:text-navy-50">
                 {room.number}
                 <span className="ml-1 text-xs font-normal text-navy-300 dark:text-navy-500">({room.type})</span>
+                {room.underMaintenance && (
+                  <span className="ml-2 text-xs font-normal text-navy-400 dark:text-navy-400">
+                    Under maintenance
+                  </span>
+                )}
               </Td>
               <Td>{room.currentGuestName ?? <span className="text-navy-300 dark:text-navy-500">—</span>}</Td>
               <Td>
@@ -108,6 +130,48 @@ function Housekeeping() {
           ))}
         </tbody>
       </Table>
+
+      {detail === 'dirty' && (
+        <StatDetailModal
+          title="Dirty Rooms"
+          value={byStatus.dirty.length}
+          rows={byStatus.dirty.map((room) => ({
+            label: `Room ${room.number}`,
+            sublabel: room.type,
+            value: room.currentGuestName ?? 'Vacant',
+          }))}
+          emptyLabel="No dirty rooms"
+          onClose={() => setDetail(null)}
+        />
+      )}
+
+      {detail === 'in-progress' && (
+        <StatDetailModal
+          title="Rooms In Progress"
+          value={byStatus['in-progress'].length}
+          rows={byStatus['in-progress'].map((room) => ({
+            label: `Room ${room.number}`,
+            sublabel: room.type,
+            value: room.housekeeping.assignedStaff ?? 'Unassigned',
+          }))}
+          emptyLabel="No rooms in progress"
+          onClose={() => setDetail(null)}
+        />
+      )}
+
+      {detail === 'clean' && (
+        <StatDetailModal
+          title="Clean Rooms"
+          value={byStatus.clean.length}
+          rows={byStatus.clean.map((room) => ({
+            label: `Room ${room.number}`,
+            sublabel: room.type,
+            value: room.housekeeping.lastCleaned ? formatTime(room.housekeeping.lastCleaned) : '—',
+          }))}
+          emptyLabel="No clean rooms"
+          onClose={() => setDetail(null)}
+        />
+      )}
     </div>
   )
 }

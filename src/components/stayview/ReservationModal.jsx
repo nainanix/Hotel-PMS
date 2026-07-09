@@ -3,6 +3,7 @@ import { AlertTriangle } from 'lucide-react'
 import Modal from '../ui/Modal'
 import Button from '../ui/Button'
 import Badge from '../ui/Badge'
+import DatePicker from '../ui/DatePicker'
 import { nightsBetween, offsetISODate, formatDateLong, addDays, parseISODate, toISODate } from '../../utils/dates'
 import { formatCurrency } from '../../utils/format'
 import { hasRoomConflict } from '../../data/api'
@@ -126,20 +127,10 @@ function ReservationModal({ mode, guests, rooms, prefill, reservation, onClose, 
 
         <div className="grid grid-cols-2 gap-4">
           <Field label="Check-in">
-            <input
-              type="date"
-              className={inputClass}
-              value={checkIn}
-              onChange={(e) => setCheckIn(e.target.value)}
-            />
+            <DatePicker value={checkIn} onChange={setCheckIn} />
           </Field>
           <Field label="Check-out">
-            <input
-              type="date"
-              className={inputClass}
-              value={checkOut}
-              onChange={(e) => setCheckOut(e.target.value)}
-            />
+            <DatePicker value={checkOut} onChange={setCheckOut} />
           </Field>
         </div>
 
@@ -154,8 +145,8 @@ function ReservationModal({ mode, guests, rooms, prefill, reservation, onClose, 
           <div className="flex items-start gap-2 rounded-xl bg-status-urgent/10 px-4 py-3 text-status-urgent">
             <AlertTriangle size={16} strokeWidth={1.75} className="mt-0.5 shrink-0" />
             <p>
-              Room {room?.number} is already booked for part of this date range. Choose different dates or
-              another room.
+              Room {room?.number} is unavailable for part of this date range — already booked or under
+              maintenance. Choose different dates or another room.
             </p>
           </div>
         )}

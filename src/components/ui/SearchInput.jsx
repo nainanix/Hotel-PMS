@@ -1,6 +1,6 @@
 import { Search } from 'lucide-react'
 
-function SearchInput({ value, onChange, placeholder = 'Search', className = '' }) {
+function SearchInput({ value, onChange, onFocus, placeholder = 'Search', className = '' }) {
   return (
     <div className={`relative ${className}`}>
       <Search
@@ -12,6 +12,7 @@ function SearchInput({ value, onChange, placeholder = 'Search', className = '' }
         type="text"
         value={value}
         onChange={(e) => onChange?.(e.target.value)}
+        onFocus={onFocus}
         placeholder={placeholder}
         className="w-full rounded-lg border border-navy-100 bg-surface py-2 pl-9 pr-3 text-sm text-navy-600 placeholder:text-navy-300 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold dark:border-navy-700 dark:text-navy-100 dark:placeholder:text-navy-500"
       />

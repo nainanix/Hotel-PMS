@@ -1,16 +1,16 @@
 import { useMemo } from 'react'
-import { Wrench } from 'lucide-react'
 import { getStayViewData } from '../../data/api'
 import { getDaysInMonth } from '../../utils/dates'
 import DateHeaderRow from './DateHeaderRow'
 import RoomRow from './RoomRow'
 import StayBlock from './StayBlock'
+import MaintenanceBlock from './MaintenanceBlock'
 
 const LABEL_COL_WIDTH = 220
 const DAY_COL_WIDTH = 56
 
-function StayViewGrid({ year, month, refreshKey, onCellClick, onBlockClick }) {
-  const { rooms, reservations } = useMemo(
+function StayViewGrid({ year, month, refreshKey, onCellClick, onBlockClick, onMaintenanceClick }) {
+  const { rooms, reservations, maintenancePeriods } = useMemo(
     () => getStayViewData(year, month),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [year, month, refreshKey]
@@ -45,23 +45,21 @@ function StayViewGrid({ year, month, refreshKey, onCellClick, onBlockClick }) {
           />
         ))}
 
-        {rooms
-          .filter((room) => room.occupancyStatus === 'maintenance')
-          .map((room) => (
-            <div
-              key={`maintenance-${room.id}`}
-              className="m-1.5 flex items-center gap-1.5 rounded-md border border-navy-200 bg-navy-50 px-2 text-xs font-medium text-navy-400 dark:border-navy-600 dark:bg-navy-800/50 dark:text-navy-400"
-              style={{
-                gridColumn: `2 / ${daysInMonth + 2}`,
-                gridRow: roomIndexById.get(room.id) + 2,
-                backgroundImage:
-                  'repeating-linear-gradient(135deg, transparent, transparent 7px, rgba(120,120,130,0.09) 7px, rgba(120,120,130,0.09) 8px)',
-              }}
-            >
-              <Wrench size={12} strokeWidth={1.75} className="shrink-0 text-gold-600 dark:text-gold-400" />
-              <span>Under maintenance</span>
-            </div>
-          ))}
+        {maintenancePeriods.map((period) => {
+          const roomIndex = roomIndexById.get(period.roomId)
+          if (roomIndex === undefined) return null
+          return (
+            <MaintenanceBlock
+              key={period.id}
+              period={period}
+              rowIndex={roomIndex + 2}
+              year={year}
+              month={month}
+              daysInMonth={daysInMonth}
+              onClick={onMaintenanceClick}
+            />
+          )
+        })}
 
         {reservations.map((reservation) => {
           const roomIndex = roomIndexById.get(reservation.roomId)

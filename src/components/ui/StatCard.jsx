@@ -1,6 +1,17 @@
-function StatCard({ label, value, icon: Icon, hint }) {
+function StatCard({ label, value, icon: Icon, hint, onClick }) {
+  const Wrapper = onClick ? 'button' : 'div'
+
   return (
-    <div className="rounded-xl border border-navy-100 bg-surface p-5 dark:border-navy-700">
+    <Wrapper
+      type={onClick ? 'button' : undefined}
+      onClick={onClick}
+      className={[
+        'w-full rounded-xl border border-navy-100 bg-surface p-5 text-left dark:border-navy-700',
+        onClick
+          ? 'cursor-pointer transition-colors hover:border-gold-300 dark:hover:border-gold-500/50'
+          : '',
+      ].join(' ')}
+    >
       <div className="flex items-start justify-between">
         <p className="text-sm font-medium text-navy-300 dark:text-navy-400">{label}</p>
         {Icon && (
@@ -11,7 +22,7 @@ function StatCard({ label, value, icon: Icon, hint }) {
       </div>
       <p className="mt-2 text-2xl font-semibold text-navy-600 dark:text-navy-50">{value}</p>
       {hint && <p className="mt-1 text-xs text-navy-300 dark:text-navy-500">{hint}</p>}
-    </div>
+    </Wrapper>
   )
 }
 

@@ -2,6 +2,7 @@ import { ROOMS } from './rooms'
 import { GUESTS } from './guests'
 import { RESERVATIONS } from './reservations'
 import { NOTIFICATIONS } from './notifications'
+import { MAINTENANCE_PERIODS } from './maintenance'
 import { nightsBetween, offsetISODate, toISODate } from '../utils/dates'
 
 // Mock API layer. Every page reads through these functions rather than the
@@ -12,8 +13,12 @@ const TODAY = offsetISODate(0)
 
 const ACTIVE_STATUSES = new Set(['confirmed', 'pending', 'checked-in'])
 
+function rangesOverlap(startA, endA, startB, endB) {
+  return startA < endB && endA > startB
+}
+
 function overlapsRange(reservation, startISO, endISO) {
-  return reservation.checkIn < endISO && reservation.checkOut > startISO
+  return rangesOverlap(reservation.checkIn, reservation.checkOut, startISO, endISO)
 }
 
 function isActiveToday(reservation) {
@@ -22,6 +27,10 @@ function isActiveToday(reservation) {
     reservation.checkIn <= TODAY &&
     reservation.checkOut > TODAY
   )
+}
+
+function isMaintenanceActiveToday(period) {
+  return period.startDate <= TODAY && period.endDate > TODAY
 }
 
 export function getNotifications() {
@@ -48,14 +57,56 @@ export function getReservations() {
   return RESERVATIONS
 }
 
-// True if roomId already has a non-cancelled reservation overlapping the
-// given date range. Used to block double-bookings before they're created.
+export function getMaintenancePeriods() {
+  return MAINTENANCE_PERIODS
+}
+
+export function getMaintenanceForDateRange(startISO, endISO) {
+  return MAINTENANCE_PERIODS.filter((period) =>
+    rangesOverlap(period.startDate, period.endDate, startISO, endISO)
+  )
+}
+
+export function isRoomUnderMaintenance(roomId, dateISO = TODAY) {
+  return MAINTENANCE_PERIODS.some(
+    (period) => period.roomId === roomId && period.startDate <= dateISO && period.endDate > dateISO
+  )
+}
+
+// True if roomId already has a non-cancelled reservation, or a scheduled
+// maintenance period, overlapping the given date range. Used to block
+// double-bookings (including booking over scheduled maintenance).
 export function hasRoomConflict(roomId, checkIn, checkOut) {
-  return RESERVATIONS.some(
+  const reservationConflict = RESERVATIONS.some(
     (reservation) =>
       reservation.roomId === roomId &&
       reservation.status !== 'cancelled' &&
       overlapsRange(reservation, checkIn, checkOut)
+  )
+  if (reservationConflict) return true
+
+  return MAINTENANCE_PERIODS.some(
+    (period) => period.roomId === roomId && rangesOverlap(period.startDate, period.endDate, checkIn, checkOut)
+  )
+}
+
+// True if roomId has a non-cancelled reservation overlapping the given
+// range — used when scheduling maintenance, so an occupied room can't be
+// taken out of service out from under a guest.
+export function hasReservationConflict(roomId, startDate, endDate, excludeMaintenanceId) {
+  const reservationConflict = RESERVATIONS.some(
+    (reservation) =>
+      reservation.roomId === roomId &&
+      reservation.status !== 'cancelled' &&
+      overlapsRange(reservation, startDate, endDate)
+  )
+  if (reservationConflict) return true
+
+  return MAINTENANCE_PERIODS.some(
+    (period) =>
+      period.roomId === roomId &&
+      period.id !== excludeMaintenanceId &&
+      rangesOverlap(period.startDate, period.endDate, startDate, endDate)
   )
 }
 
@@ -76,6 +127,31 @@ export function addReservation({ guestId, roomId, checkIn, checkOut, status, tot
   }
   RESERVATIONS.push(reservation)
   return reservation
+}
+
+export function addMaintenancePeriod({ roomId, startDate, endDate, note }) {
+  const period = {
+    id: `maint-${Date.now()}`,
+    hotelId: 'hotel-1',
+    roomId,
+    startDate,
+    endDate,
+    note,
+  }
+  MAINTENANCE_PERIODS.push(period)
+  return period
+}
+
+export function updateMaintenancePeriod(id, updates) {
+  const period = MAINTENANCE_PERIODS.find((p) => p.id === id)
+  if (!period) return null
+  Object.assign(period, updates)
+  return period
+}
+
+export function removeMaintenancePeriod(id) {
+  const index = MAINTENANCE_PERIODS.findIndex((p) => p.id === id)
+  if (index !== -1) MAINTENANCE_PERIODS.splice(index, 1)
 }
 
 export function getReservationsByStatus(status) {
@@ -105,8 +181,8 @@ export function getReservationsDetailed() {
   })
 }
 
-// Rooms + reservations scoped to a given month, with reservations already
-// joined to guest/room display fields for the Stay View grid.
+// Rooms + reservations + maintenance periods scoped to a given month, with
+// reservations already joined to guest display fields, for the Stay View grid.
 export function getStayViewData(year, month) {
   const monthStart = new Date(year, month, 1)
   const monthEnd = new Date(year, month + 1, 1)
@@ -120,7 +196,9 @@ export function getStayViewData(year, month) {
       return { ...reservation, guestName: guest?.name ?? 'Unknown guest' }
     })
 
-  return { rooms: ROOMS, reservations }
+  const maintenancePeriods = getMaintenanceForDateRange(startISO, endISO)
+
+  return { rooms: ROOMS, reservations, maintenancePeriods }
 }
 
 // Rooms joined with their current occupant (if any) and housekeeping info,
@@ -135,6 +213,7 @@ export function getHousekeepingStatus() {
       ...room,
       currentGuestName: guest?.name ?? null,
       currentReservationStatus: activeReservation?.status ?? null,
+      underMaintenance: isRoomUnderMaintenance(room.id),
     }
   })
 }
@@ -153,9 +232,12 @@ export function getOccupancyStats() {
   const occupiedRoomIds = new Set(
     RESERVATIONS.filter(isActiveToday).map((reservation) => reservation.roomId)
   )
-  const maintenanceRooms = ROOMS.filter((room) => room.occupancyStatus === 'maintenance').length
+  const maintenanceRoomIds = new Set(
+    MAINTENANCE_PERIODS.filter(isMaintenanceActiveToday).map((period) => period.roomId)
+  )
   const occupiedRooms = occupiedRoomIds.size
-  const availableRooms = ROOMS.length - occupiedRooms - maintenanceRooms
+  const maintenanceRooms = maintenanceRoomIds.size
+  const availableRooms = Math.max(ROOMS.length - occupiedRooms - maintenanceRooms, 0)
 
   return {
     totalRooms: ROOMS.length,
@@ -292,5 +374,194 @@ export function getReservationSummaryStats() {
     activeStays,
     avgDailyRate: Math.round(avgDailyRate),
     occupancyRate,
+  }
+}
+
+// Today's rooms split into occupied / available / under-maintenance, each
+// joined with display fields — feeds the Occupancy detail popup on both
+// Overview and Reservations.
+export function getRoomStatusBreakdown() {
+  const occupied = []
+  const available = []
+  const maintenance = []
+
+  ROOMS.forEach((room) => {
+    const activeReservation = RESERVATIONS.find(
+      (reservation) => reservation.roomId === room.id && isActiveToday(reservation)
+    )
+    const activePeriod = MAINTENANCE_PERIODS.find(
+      (period) => period.roomId === room.id && isMaintenanceActiveToday(period)
+    )
+    if (activeReservation) {
+      occupied.push({
+        roomNumber: room.number,
+        roomType: room.type,
+        guestName: getGuestById(activeReservation.guestId)?.name ?? 'Unknown guest',
+      })
+    } else if (activePeriod) {
+      maintenance.push({ roomNumber: room.number, roomType: room.type, note: activePeriod.note })
+    } else {
+      available.push({ roomNumber: room.number, roomType: room.type })
+    }
+  })
+
+  return { occupied, available, maintenance }
+}
+
+// Nightly rate for each room occupied right now — feeds the ADR/RevPAR
+// detail popups on Overview.
+export function getActiveRateBreakdown() {
+  return RESERVATIONS.filter(isActiveToday).map((reservation) => {
+    const nights = nightsBetween(reservation.checkIn, reservation.checkOut) || 1
+    return {
+      roomNumber: getRoomById(reservation.roomId)?.number ?? '—',
+      guestName: getGuestById(reservation.guestId)?.name ?? 'Unknown guest',
+      rate: Math.round(reservation.total / nights),
+    }
+  })
+}
+
+// Nightly rate for every reservation in the active pipeline (confirmed,
+// pending, or checked-in) — feeds the Avg Daily Rate detail popup on the
+// Reservations page, matching how getReservationSummaryStats computes it.
+export function getPipelineRateBreakdown() {
+  return RESERVATIONS.filter((reservation) => ACTIVE_STATUSES.has(reservation.status)).map((reservation) => {
+    const nights = nightsBetween(reservation.checkIn, reservation.checkOut) || 1
+    return {
+      roomNumber: getRoomById(reservation.roomId)?.number ?? '—',
+      guestName: getGuestById(reservation.guestId)?.name ?? 'Unknown guest',
+      status: reservation.status,
+      rate: Math.round(reservation.total / nights),
+    }
+  })
+}
+
+// Reservations checking in today — feeds the Today's Check-ins detail popup.
+export function getTodaysArrivalsList() {
+  return RESERVATIONS.filter((reservation) => reservation.checkIn === TODAY && reservation.status !== 'cancelled').map(
+    (reservation) => ({
+      roomNumber: getRoomById(reservation.roomId)?.number ?? '—',
+      guestName: getGuestById(reservation.guestId)?.name ?? 'Unknown guest',
+      status: reservation.status,
+    })
+  )
+}
+
+// Reservations currently in-house — feeds the Active Stays detail popup.
+export function getActiveStaysList() {
+  return RESERVATIONS.filter(isActiveToday).map((reservation) => ({
+    roomNumber: getRoomById(reservation.roomId)?.number ?? '—',
+    guestName: getGuestById(reservation.guestId)?.name ?? 'Unknown guest',
+    checkOut: reservation.checkOut,
+  }))
+}
+
+// Booked revenue grouped by room type for a single month — feeds the
+// Overview Monthly Revenue detail popup (month-scoped, unlike
+// getRevenueByRoomType which is all-time).
+export function getRevenueByRoomTypeForMonth(year, month) {
+  const monthStart = toISODate(new Date(year, month, 1))
+  const monthEnd = toISODate(new Date(year, month + 1, 1))
+  const totals = new Map()
+  RESERVATIONS.filter(
+    (reservation) =>
+      reservation.status !== 'cancelled' && reservation.checkIn >= monthStart && reservation.checkIn < monthEnd
+  ).forEach((reservation) => {
+    const room = getRoomById(reservation.roomId)
+    if (!room) return
+    totals.set(room.type, (totals.get(room.type) ?? 0) + reservation.total)
+  })
+  return Array.from(totals, ([type, revenue]) => ({ type, revenue }))
+}
+
+// Booking counts by status, all-time — feeds the Reports Total Bookings
+// detail popup.
+export function getBookingStatusBreakdown() {
+  const totals = new Map()
+  RESERVATIONS.forEach((reservation) => {
+    totals.set(reservation.status, (totals.get(reservation.status) ?? 0) + 1)
+  })
+  return Array.from(totals, ([status, count]) => ({ status, count }))
+}
+
+// Average nightly rate by room type, all-time — feeds the Reports Avg Rate
+// detail popup.
+export function getAvgRateByRoomType() {
+  const sums = new Map()
+  const counts = new Map()
+  RESERVATIONS.filter((reservation) => reservation.status !== 'cancelled').forEach((reservation) => {
+    const room = getRoomById(reservation.roomId)
+    if (!room) return
+    const nights = nightsBetween(reservation.checkIn, reservation.checkOut) || 1
+    sums.set(room.type, (sums.get(room.type) ?? 0) + reservation.total / nights)
+    counts.set(room.type, (counts.get(room.type) ?? 0) + 1)
+  })
+  return Array.from(sums, ([type, sum]) => ({ type, rate: Math.round(sum / counts.get(type)) }))
+}
+
+// Completed (checked-out) stay counts by room type, all-time — feeds the
+// Reports Completed Stays detail popup.
+export function getCompletedStaysByRoomType() {
+  const totals = new Map()
+  RESERVATIONS.filter((reservation) => reservation.status === 'checked-out').forEach((reservation) => {
+    const room = getRoomById(reservation.roomId)
+    if (!room) return
+    totals.set(room.type, (totals.get(room.type) ?? 0) + 1)
+  })
+  return Array.from(totals, ([type, count]) => ({ type, count }))
+}
+
+// Lightweight cross-entity search for the TopBar global search — matches
+// guest name/email, booking ID/guest name, and room number/type, capped per
+// category so the dropdown stays short.
+export function searchAll(query, limit = 4) {
+  const q = query.trim().toLowerCase()
+  if (!q) return { guests: [], reservations: [], rooms: [] }
+
+  const guests = GUESTS.filter(
+    (guest) => guest.name.toLowerCase().includes(q) || guest.email.toLowerCase().includes(q)
+  ).slice(0, limit)
+
+  const reservations = getReservationsDetailed()
+    .filter((reservation) => reservation.guestName.toLowerCase().includes(q) || reservation.id.toLowerCase().includes(q))
+    .slice(0, limit)
+
+  const rooms = ROOMS.filter(
+    (room) => room.number.toLowerCase().includes(q) || room.type.toLowerCase().includes(q)
+  ).slice(0, limit)
+
+  return { guests, reservations, rooms }
+}
+
+// All-time analytics for the Reports page: lifetime revenue/bookings plus a
+// month-by-month revenue trend across every reservation on record.
+export function getHistoricalAnalytics() {
+  const nonCancelled = RESERVATIONS.filter((reservation) => reservation.status !== 'cancelled')
+  const completed = RESERVATIONS.filter((reservation) => reservation.status === 'checked-out')
+
+  const totalRevenue = nonCancelled.reduce((sum, reservation) => sum + reservation.total, 0)
+  const totalBookings = nonCancelled.length
+  const avgRate = totalBookings
+    ? nonCancelled.reduce((sum, reservation) => {
+        const nights = nightsBetween(reservation.checkIn, reservation.checkOut) || 1
+        return sum + reservation.total / nights
+      }, 0) / totalBookings
+    : 0
+
+  const monthlyTotals = new Map()
+  nonCancelled.forEach((reservation) => {
+    const key = reservation.checkIn.slice(0, 7) // YYYY-MM
+    monthlyTotals.set(key, (monthlyTotals.get(key) ?? 0) + reservation.total)
+  })
+  const revenueByMonth = Array.from(monthlyTotals, ([month, revenue]) => ({ month, revenue })).sort((a, b) =>
+    a.month < b.month ? -1 : 1
+  )
+
+  return {
+    totalRevenue: Math.round(totalRevenue),
+    totalBookings,
+    completedStays: completed.length,
+    avgRate: Math.round(avgRate),
+    revenueByMonth,
   }
 }

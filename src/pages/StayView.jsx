@@ -5,14 +5,28 @@ import StatCard from '../components/ui/StatCard'
 import StayViewGrid from '../components/stayview/StayViewGrid'
 import MonthTabs from '../components/stayview/MonthTabs'
 import ReservationModal from '../components/stayview/ReservationModal'
-import { getKeyMetrics, getRooms, getGuests, addReservation } from '../data/api'
+import CellChoiceModal from '../components/stayview/CellChoiceModal'
+import MaintenanceModal from '../components/stayview/MaintenanceModal'
+import {
+  getKeyMetrics,
+  getRooms,
+  getGuests,
+  addReservation,
+  addMaintenancePeriod,
+  updateMaintenancePeriod,
+  removeMaintenancePeriod,
+} from '../data/api'
 import { formatCurrency } from '../utils/format'
 
 function StayView() {
   const now = new Date()
   const [cursor, setCursor] = useState({ year: now.getFullYear(), month: now.getMonth() })
   const [refreshKey, setRefreshKey] = useState(0)
-  const [modal, setModal] = useState(null) // { mode: 'create'|'view', prefill?, reservation? }
+  const [modal, setModal] = useState(null)
+  // modal shapes:
+  //  { type: 'choice', room, dateISO }
+  //  { type: 'reservation', mode: 'create'|'view', prefill?, reservation? }
+  //  { type: 'maintenance', mode: 'create'|'edit', prefill?, period? }
 
   const metrics = useMemo(
     () => getKeyMetrics(cursor.year, cursor.month),
@@ -22,16 +36,36 @@ function StayView() {
   const rooms = getRooms()
   const guests = getGuests()
 
-  function handleCreate(data) {
-    addReservation(data)
+  function refresh() {
     setRefreshKey((k) => k + 1)
+  }
+
+  function handleCreateReservation(data) {
+    addReservation(data)
+    refresh()
+    setModal(null)
+  }
+
+  function handleSaveMaintenance(data) {
+    if (modal?.mode === 'edit') {
+      updateMaintenancePeriod(modal.period.id, data)
+    } else {
+      addMaintenancePeriod(data)
+    }
+    refresh()
+    setModal(null)
+  }
+
+  function handleRemoveMaintenance() {
+    if (modal?.period) removeMaintenancePeriod(modal.period.id)
+    refresh()
     setModal(null)
   }
 
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-end">
-        <Button icon={Plus} onClick={() => setModal({ mode: 'create', prefill: {} })}>
+        <Button icon={Plus} onClick={() => setModal({ type: 'reservation', mode: 'create', prefill: {} })}>
           Create Reservation
         </Button>
       </div>
@@ -42,10 +76,9 @@ function StayView() {
         year={cursor.year}
         month={cursor.month}
         refreshKey={refreshKey}
-        onCellClick={(room, dateISO) =>
-          setModal({ mode: 'create', prefill: { roomId: room.id, checkIn: dateISO } })
-        }
-        onBlockClick={(reservation) => setModal({ mode: 'view', reservation })}
+        onCellClick={(room, dateISO) => setModal({ type: 'choice', room, dateISO })}
+        onBlockClick={(reservation) => setModal({ type: 'reservation', mode: 'view', reservation })}
+        onMaintenanceClick={(period) => setModal({ type: 'maintenance', mode: 'edit', period })}
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -55,7 +88,29 @@ function StayView() {
         <StatCard label="Monthly Revenue" value={formatCurrency(metrics.monthlyRevenue)} icon={Wallet} />
       </div>
 
-      {modal && (
+      {modal?.type === 'choice' && (
+        <CellChoiceModal
+          room={modal.room}
+          dateISO={modal.dateISO}
+          onClose={() => setModal(null)}
+          onChooseReservation={() =>
+            setModal({
+              type: 'reservation',
+              mode: 'create',
+              prefill: { roomId: modal.room.id, checkIn: modal.dateISO },
+            })
+          }
+          onChooseMaintenance={() =>
+            setModal({
+              type: 'maintenance',
+              mode: 'create',
+              prefill: { roomId: modal.room.id, startDate: modal.dateISO },
+            })
+          }
+        />
+      )}
+
+      {modal?.type === 'reservation' && (
         <ReservationModal
           mode={modal.mode}
           guests={guests}
@@ -63,7 +118,19 @@ function StayView() {
           prefill={modal.prefill}
           reservation={modal.reservation}
           onClose={() => setModal(null)}
-          onCreate={handleCreate}
+          onCreate={handleCreateReservation}
+        />
+      )}
+
+      {modal?.type === 'maintenance' && (
+        <MaintenanceModal
+          mode={modal.mode}
+          rooms={rooms}
+          prefill={modal.prefill}
+          period={modal.period}
+          onClose={() => setModal(null)}
+          onSave={handleSaveMaintenance}
+          onRemove={handleRemoveMaintenance}
         />
       )}
     </div>
