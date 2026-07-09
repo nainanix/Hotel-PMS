@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { ThemeProvider } from './context/ThemeContext'
 import Layout from './components/layout/Layout'
 import Overview from './pages/Overview'
@@ -13,7 +13,7 @@ import Settings from './pages/Settings'
 function App() {
   return (
     <ThemeProvider>
-      <BrowserRouter>
+      <HashRouter>
         <Routes>
           <Route element={<Layout />}>
             <Route index element={<Navigate to="/overview" replace />} />
@@ -27,7 +27,7 @@ function App() {
             <Route path="settings" element={<Settings />} />
           </Route>
         </Routes>
-      </BrowserRouter>
+      </HashRouter>
     </ThemeProvider>
   )
 }
