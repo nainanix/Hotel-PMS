@@ -5,9 +5,9 @@ const WIDTH = 700
 const HEIGHT = 180
 const PADDING = { top: 10, right: 4, bottom: 20, left: 4 }
 
-function OccupancyTrendChart({ data }) {
+function OccupancyTrendChart({ data, highlightDateISO }) {
   const [hoverIndex, setHoverIndex] = useState(null)
-  const todayISO = offsetISODate(0)
+  const todayISO = highlightDateISO ?? offsetISODate(0)
 
   const chartWidth = WIDTH - PADDING.left - PADDING.right
   const chartHeight = HEIGHT - PADDING.top - PADDING.bottom

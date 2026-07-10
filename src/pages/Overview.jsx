@@ -1,13 +1,17 @@
 import { useMemo, useState } from 'react'
-import { PieChart, IndianRupee, TrendingUp, Wallet, LogIn, LogOut } from 'lucide-react'
+import { PieChart, IndianRupee, TrendingUp, Wallet, LogIn, LogOut, RotateCcw } from 'lucide-react'
 import StatCard from '../components/ui/StatCard'
 import StatDetailModal from '../components/ui/StatDetailModal'
+import OccupancyBreakdown from '../components/ui/OccupancyBreakdown'
+import DatePicker from '../components/ui/DatePicker'
+import Button from '../components/ui/Button'
 import ChartCard from '../components/overview/ChartCard'
 import OccupancyTrendChart from '../components/overview/OccupancyTrendChart'
 import RevenueByRoomTypeChart from '../components/overview/RevenueByRoomTypeChart'
 import GuestMixDonut from '../components/overview/GuestMixDonut'
 import UpcomingList from '../components/overview/UpcomingList'
 import {
+  getDailyMetrics,
   getMonthlyMetrics,
   getOccupancyByDay,
   getRevenueByRoomType,
@@ -15,32 +19,50 @@ import {
   getGuestStatusBreakdown,
   getUpcomingArrivals,
   getUpcomingDepartures,
-  getRateBreakdownForMonth,
+  getRoomStatusBreakdown,
+  getRateBreakdownForDate,
 } from '../data/api'
 import { formatCurrency } from '../utils/format'
+import { formatDateLong, offsetISODate, parseISODate } from '../utils/dates'
 
 function Overview() {
-  const now = new Date()
-  const year = now.getFullYear()
-  const month = now.getMonth()
+  const todayISO = offsetISODate(0)
+  const [selectedDate, setSelectedDate] = useState(todayISO)
   const [detail, setDetail] = useState(null)
 
-  const metrics = useMemo(() => getMonthlyMetrics(year, month), [year, month])
+  const selected = parseISODate(selectedDate)
+  const year = selected.getFullYear()
+  const month = selected.getMonth()
+
+  const dailyMetrics = useMemo(() => getDailyMetrics(selectedDate), [selectedDate])
+  const monthlyMetrics = useMemo(() => getMonthlyMetrics(year, month), [year, month])
+  const metrics = { ...dailyMetrics, monthlyRevenue: monthlyMetrics.monthlyRevenue }
   const occupancyByDay = useMemo(() => getOccupancyByDay(year, month), [year, month])
   const revenueByRoomType = useMemo(() => getRevenueByRoomType(), [])
   const guestMix = useMemo(() => getGuestStatusBreakdown(), [])
-  const arrivals = useMemo(() => getUpcomingArrivals(5), [])
-  const departures = useMemo(() => getUpcomingDepartures(5), [])
+  const arrivals = useMemo(() => getUpcomingArrivals(5, selectedDate), [selectedDate])
+  const departures = useMemo(() => getUpcomingDepartures(5, selectedDate), [selectedDate])
 
-  const monthLabel = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+  const monthLabel = selected.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+  const dateLabel = formatDateLong(selectedDate)
 
   return (
     <div className="flex flex-col gap-6">
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        {selectedDate !== todayISO && (
+          <Button variant="ghost" icon={RotateCcw} onClick={() => setSelectedDate(todayISO)}>
+            Today
+          </Button>
+        )}
+        <DatePicker value={selectedDate} onChange={setSelectedDate} className="w-48" />
+      </div>
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           label="Occupancy"
           value={`${metrics.occupancyRate}%`}
           icon={PieChart}
+          hint={selectedDate === todayISO ? 'Today' : dateLabel}
           onClick={() => setDetail('occupancy')}
         />
         <StatCard
@@ -67,7 +89,7 @@ function Overview() {
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <ChartCard title="Occupancy Trend" subtitle={monthLabel} className="lg:col-span-2">
-          <OccupancyTrendChart data={occupancyByDay} />
+          <OccupancyTrendChart data={occupancyByDay} highlightDateISO={selectedDate} />
         </ChartCard>
         <ChartCard title="Guest Mix" subtitle="By loyalty status">
           <GuestMixDonut data={guestMix} />
@@ -90,27 +112,24 @@ function Overview() {
         <StatDetailModal
           title="Occupancy"
           value={`${metrics.occupancyRate}%`}
-          hint={`Average daily occupancy, ${monthLabel}`}
-          rows={occupancyByDay.map((d) => ({
-            label: `Day ${d.day}`,
-            sublabel: `${d.occupiedRooms} room${d.occupiedRooms === 1 ? '' : 's'} occupied`,
-            value: `${d.rate}%`,
-          }))}
+          hint={`On ${dateLabel}, across all rooms`}
           onClose={() => setDetail(null)}
-        />
+        >
+          <OccupancyBreakdown breakdown={getRoomStatusBreakdown(selectedDate)} />
+        </StatDetailModal>
       )}
 
       {detail === 'adr' && (
         <StatDetailModal
           title="Average Daily Rate"
           value={formatCurrency(metrics.adr)}
-          hint={`Mean nightly rate across bookings, ${monthLabel}`}
-          rows={getRateBreakdownForMonth(year, month).map((r) => ({
+          hint={`Mean nightly rate across occupied rooms, ${dateLabel}`}
+          rows={getRateBreakdownForDate(selectedDate).map((r) => ({
             label: r.guestName,
             sublabel: `Room ${r.roomNumber}`,
             value: formatCurrency(r.rate),
           }))}
-          emptyLabel="No bookings this month"
+          emptyLabel="No rooms occupied on this date"
           onClose={() => setDetail(null)}
         />
       )}

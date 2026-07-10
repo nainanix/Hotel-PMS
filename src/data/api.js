@@ -21,16 +21,24 @@ function overlapsRange(reservation, startISO, endISO) {
   return rangesOverlap(reservation.checkIn, reservation.checkOut, startISO, endISO)
 }
 
-function isActiveToday(reservation) {
+function isActiveOnDate(reservation, dateISO) {
   return (
     reservation.status !== 'cancelled' &&
-    reservation.checkIn <= TODAY &&
-    reservation.checkOut > TODAY
+    reservation.checkIn <= dateISO &&
+    reservation.checkOut > dateISO
   )
 }
 
+function isMaintenanceActiveOnDate(period, dateISO) {
+  return period.startDate <= dateISO && period.endDate > dateISO
+}
+
+function isActiveToday(reservation) {
+  return isActiveOnDate(reservation, TODAY)
+}
+
 function isMaintenanceActiveToday(period) {
-  return period.startDate <= TODAY && period.endDate > TODAY
+  return isMaintenanceActiveOnDate(period, TODAY)
 }
 
 export function getNotifications() {
@@ -236,12 +244,16 @@ export function getGuestsWithResidenceStatus() {
   })
 }
 
-export function getOccupancyStats() {
+export function getOccupancyStats(dateISO = TODAY) {
   const occupiedRoomIds = new Set(
-    RESERVATIONS.filter(isActiveToday).map((reservation) => reservation.roomId)
+    RESERVATIONS.filter((reservation) => isActiveOnDate(reservation, dateISO)).map(
+      (reservation) => reservation.roomId
+    )
   )
   const maintenanceRoomIds = new Set(
-    MAINTENANCE_PERIODS.filter(isMaintenanceActiveToday).map((period) => period.roomId)
+    MAINTENANCE_PERIODS.filter((period) => isMaintenanceActiveOnDate(period, dateISO)).map(
+      (period) => period.roomId
+    )
   )
   const occupiedRooms = occupiedRoomIds.size
   const maintenanceRooms = maintenanceRoomIds.size
@@ -252,7 +264,28 @@ export function getOccupancyStats() {
     occupiedRooms,
     availableRooms,
     maintenanceRooms,
-    occupancyRate: Math.round((occupiedRooms / ROOMS.length) * 100),
+    occupancyRate: ROOMS.length ? Math.round((occupiedRooms / ROOMS.length) * 100) : 0,
+  }
+}
+
+// Occupancy/ADR/RevPAR for a single calendar date — feeds the Overview date
+// picker, so every KPI recomputes from the reservations actually active on
+// whichever date is selected (defaults to today).
+export function getDailyMetrics(dateISO = TODAY) {
+  const activeReservations = RESERVATIONS.filter((reservation) => isActiveOnDate(reservation, dateISO))
+  const { occupancyRate } = getOccupancyStats(dateISO)
+
+  const nightlyRates = activeReservations.map((reservation) => {
+    const nights = nightsBetween(reservation.checkIn, reservation.checkOut) || 1
+    return reservation.total / nights
+  })
+  const adr = nightlyRates.length ? nightlyRates.reduce((sum, rate) => sum + rate, 0) / nightlyRates.length : 0
+  const revpar = adr * (occupancyRate / 100)
+
+  return {
+    occupancyRate,
+    adr: Math.round(adr),
+    revpar: Math.round(revpar),
   }
 }
 
@@ -343,11 +376,11 @@ export function getGuestStatusBreakdown() {
   return Array.from(totals, ([status, count]) => ({ status, count }))
 }
 
-// Next `limit` upcoming arrivals (check-in today or later), joined with
-// guest/room display fields, soonest first.
-export function getUpcomingArrivals(limit = 5) {
+// Next `limit` upcoming arrivals (check-in on or after fromDateISO, which
+// defaults to today), joined with guest/room display fields, soonest first.
+export function getUpcomingArrivals(limit = 5, fromDateISO = TODAY) {
   return RESERVATIONS.filter(
-    (reservation) => reservation.status !== 'cancelled' && reservation.checkIn >= TODAY
+    (reservation) => reservation.status !== 'cancelled' && reservation.checkIn >= fromDateISO
   )
     .sort((a, b) => (a.checkIn < b.checkIn ? -1 : 1))
     .slice(0, limit)
@@ -358,11 +391,11 @@ export function getUpcomingArrivals(limit = 5) {
     }))
 }
 
-// Next `limit` upcoming departures (check-out today or later), same shape
-// as getUpcomingArrivals.
-export function getUpcomingDepartures(limit = 5) {
+// Next `limit` upcoming departures (check-out on or after fromDateISO, which
+// defaults to today), same shape as getUpcomingArrivals.
+export function getUpcomingDepartures(limit = 5, fromDateISO = TODAY) {
   return RESERVATIONS.filter(
-    (reservation) => reservation.status !== 'cancelled' && reservation.checkOut >= TODAY
+    (reservation) => reservation.status !== 'cancelled' && reservation.checkOut >= fromDateISO
   )
     .sort((a, b) => (a.checkOut < b.checkOut ? -1 : 1))
     .slice(0, limit)
@@ -398,20 +431,20 @@ export function getReservationSummaryStats() {
   }
 }
 
-// Today's rooms split into occupied / available / under-maintenance, each
-// joined with display fields — feeds the Occupancy detail popup on both
-// Overview and Reservations.
-export function getRoomStatusBreakdown() {
+// Rooms split into occupied / available / under-maintenance for a single
+// date (defaults to today), each joined with display fields — feeds the
+// Occupancy detail popup on Overview, Stay View, and Reservations.
+export function getRoomStatusBreakdown(dateISO = TODAY) {
   const occupied = []
   const available = []
   const maintenance = []
 
   ROOMS.forEach((room) => {
     const activeReservation = RESERVATIONS.find(
-      (reservation) => reservation.roomId === room.id && isActiveToday(reservation)
+      (reservation) => reservation.roomId === room.id && isActiveOnDate(reservation, dateISO)
     )
     const activePeriod = MAINTENANCE_PERIODS.find(
-      (period) => period.roomId === room.id && isMaintenanceActiveToday(period)
+      (period) => period.roomId === room.id && isMaintenanceActiveOnDate(period, dateISO)
     )
     if (activeReservation) {
       occupied.push({
@@ -427,6 +460,20 @@ export function getRoomStatusBreakdown() {
   })
 
   return { occupied, available, maintenance }
+}
+
+// Nightly rate for each room occupied on a single date (defaults to today)
+// — feeds the ADR detail popup on Overview, matching how getDailyMetrics
+// computes ADR for that same date.
+export function getRateBreakdownForDate(dateISO = TODAY) {
+  return RESERVATIONS.filter((reservation) => isActiveOnDate(reservation, dateISO)).map((reservation) => {
+    const nights = nightsBetween(reservation.checkIn, reservation.checkOut) || 1
+    return {
+      roomNumber: getRoomById(reservation.roomId)?.number ?? '—',
+      guestName: getGuestById(reservation.guestId)?.name ?? 'Unknown guest',
+      rate: Math.round(reservation.total / nights),
+    }
+  })
 }
 
 // Nightly rate for every non-cancelled reservation touching the given
