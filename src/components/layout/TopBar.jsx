@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Bell, Phone, User, Moon, Sun } from 'lucide-react'
+import { Bell, Phone, User, Moon, Sun, Menu } from 'lucide-react'
 import { useLocation } from 'react-router-dom'
 import GlobalSearch from './GlobalSearch'
 import ContactPopover from './ContactPopover'
@@ -12,14 +12,37 @@ const PAGE_TITLES = {
   '/overview': 'Overview',
   '/stay-view': 'Stay View',
   '/reservations': 'Reservations',
-  '/rates': 'Rates',
-  '/guests': 'Guest Database',
-  '/housekeeping': 'Housekeeping',
+  '/rates/plans': 'Rate Plans',
+  '/rates/availability': 'Availability Calendar',
+  '/rates/seasonal-pricing': 'Seasonal Pricing',
+  '/rates/restrictions': 'Rate Restrictions',
+  '/distribution/channel-manager': 'Channel Manager',
+  '/distribution/ota-connections': 'OTA Connections',
+  '/distribution/rate-parity': 'Rate Parity',
+  '/distribution/booking-engine': 'Booking Engine',
+  '/guests/database': 'Guest Database',
+  '/guests/profiles': 'Guest Profiles',
+  '/guests/loyalty': 'Loyalty Program',
+  '/guests/feedback': 'Feedback & Reviews',
+  '/cashiering/folios': 'Folios',
+  '/cashiering/payments': 'Payments',
+  '/cashiering/invoices': 'Invoices',
+  '/cashiering/refunds': 'Refunds',
+  '/housekeeping/room-status': 'Housekeeping',
+  '/housekeeping/staff-assignments': 'Staff Assignments',
+  '/housekeeping/maintenance-requests': 'Maintenance Requests',
+  '/housekeeping/schedule': 'Cleaning Schedule',
+  '/night-audit/checklist': 'Audit Checklist',
+  '/night-audit/end-of-day': 'End of Day Report',
+  '/night-audit/discrepancies': 'Discrepancy Log',
+  '/b2b-marketplace': 'B2B Marketplace',
+  '/net-locks': 'Net Locks',
   '/reports': 'Reports',
+  '/exported-reports': 'Exported Reports',
   '/settings': 'Settings',
 }
 
-function TopBar() {
+function TopBar({ onToggleSidebar }) {
   const { pathname } = useLocation()
   const title = PAGE_TITLES[pathname] ?? 'Hotel PMS'
   const { theme, toggleTheme } = useTheme()
@@ -33,7 +56,15 @@ function TopBar() {
 
   return (
     <header className="flex h-16 shrink-0 items-center justify-between border-b border-navy-100 bg-navy-900 px-6">
-      <div className="flex items-center gap-6">
+      <div className="flex items-center gap-4">
+        <button
+          type="button"
+          onClick={onToggleSidebar}
+          className="rounded-full p-2 text-navy-200 transition-colors hover:bg-navy-700 hover:text-white"
+          aria-label="Toggle sidebar"
+        >
+          <Menu size={18} strokeWidth={1.75} />
+        </button>
         <h1 className="text-base font-semibold text-white">{title}</h1>
         <GlobalSearch className="w-64" />
       </div>

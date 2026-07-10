@@ -5,7 +5,7 @@ import SearchInput from '../ui/SearchInput'
 import { searchAll } from '../../data/api'
 
 const CATEGORY_SHORTCUTS = [
-  { key: 'guests', label: 'Guests', description: 'Browse the guest directory', icon: Users, to: '/guests' },
+  { key: 'guests', label: 'Guests', description: 'Browse the guest directory', icon: Users, to: '/guests/database' },
   { key: 'reservations', label: 'Reservations', description: 'View all bookings', icon: ClipboardList, to: '/reservations' },
   { key: 'rooms', label: 'Rooms', description: 'Open the Stay View calendar', icon: BedDouble, to: '/stay-view' },
 ]
@@ -95,7 +95,7 @@ function GlobalSearch({ className = '' }) {
                     icon={Users}
                     title={guest.name}
                     subtitle={guest.email}
-                    onClick={() => go('/guests')}
+                    onClick={() => go('/guests/database')}
                   />
                 ))}
               </ResultGroup>

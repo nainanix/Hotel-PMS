@@ -1,6 +1,6 @@
 import { NavLink } from 'react-router-dom'
 
-function NavItem({ to, icon: Icon, label }) {
+function NavItem({ to, icon: Icon, label, badge }) {
   return (
     <NavLink
       to={to}
@@ -14,7 +14,12 @@ function NavItem({ to, icon: Icon, label }) {
       }
     >
       <Icon size={18} strokeWidth={1.75} />
-      <span>{label}</span>
+      <span className="flex-1">{label}</span>
+      {badge && (
+        <span className="rounded-full bg-status-urgent px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white">
+          {badge}
+        </span>
+      )}
     </NavLink>
   )
 }
