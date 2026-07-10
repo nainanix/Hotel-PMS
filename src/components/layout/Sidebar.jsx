@@ -1,4 +1,5 @@
-import { Link } from 'react-router-dom'
+import { useState } from 'react'
+import { Link, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard,
   CalendarRange,
@@ -9,7 +10,6 @@ import {
   IndianRupee,
   Sparkles,
   FileText,
-  Store,
   Lock,
   BarChart3,
   FileDown,
@@ -81,7 +81,6 @@ const NAV_ITEMS = [
       { to: '/night-audit/discrepancies', label: 'Discrepancy Log' },
     ],
   },
-  { to: '/b2b-marketplace', label: 'B2B Marketplace', icon: Store, badge: 'NEW' },
 ]
 
 const NAV_ITEMS_LOWER = [
@@ -91,6 +90,12 @@ const NAV_ITEMS_LOWER = [
 ]
 
 function Sidebar({ open }) {
+  const { pathname } = useLocation()
+  const [openGroup, setOpenGroup] = useState(() => {
+    const match = NAV_ITEMS.find((item) => item.items?.some((sub) => sub.to === pathname))
+    return match?.label ?? null
+  })
+
   return (
     <aside
       className={`flex h-screen shrink-0 flex-col overflow-hidden bg-navy-900 transition-all duration-200 ${
@@ -105,7 +110,13 @@ function Sidebar({ open }) {
         <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-3 pb-3">
           {NAV_ITEMS.map((item) =>
             item.items ? (
-              <NavGroup key={item.label} {...item} />
+              <NavGroup
+                key={item.label}
+                {...item}
+                open={openGroup === item.label}
+                onOpen={() => setOpenGroup(item.label)}
+                onClose={() => setOpenGroup((g) => (g === item.label ? null : g))}
+              />
             ) : (
               <NavItem key={item.to} {...item} />
             )

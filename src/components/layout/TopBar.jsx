@@ -35,7 +35,6 @@ const PAGE_TITLES = {
   '/night-audit/checklist': 'Audit Checklist',
   '/night-audit/end-of-day': 'End of Day Report',
   '/night-audit/discrepancies': 'Discrepancy Log',
-  '/b2b-marketplace': 'B2B Marketplace',
   '/net-locks': 'Net Locks',
   '/reports': 'Reports',
   '/exported-reports': 'Exported Reports',

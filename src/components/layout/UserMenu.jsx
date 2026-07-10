@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { User, Building2, Settings, LogOut } from 'lucide-react'
 import Popover from '../ui/Popover'
 import { useAuth } from '../../context/AuthContext'
@@ -36,13 +37,14 @@ function UserMenu({ onClose }) {
         </div>
 
         <div className="flex flex-col gap-0.5">
-          <button
-            type="button"
+          <Link
+            to="/settings"
+            onClick={onClose}
             className="flex items-center gap-2 rounded-lg px-2 py-2 text-left text-navy-500 transition-colors hover:bg-surface-muted dark:text-navy-300"
           >
             <Settings size={15} strokeWidth={1.75} />
             Account settings
-          </button>
+          </Link>
           <button
             type="button"
             onClick={handleSignOut}

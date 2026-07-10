@@ -127,13 +127,7 @@ function StayView() {
         month={cursor.month}
         refreshKey={refreshKey}
         onCellClick={(room, dateISO) => setModal({ type: 'choice', room, dateISO })}
-        onBlockClick={(reservation) =>
-          setModal(
-            reservation.status === 'checked-in'
-              ? { type: 'guestActions', reservation }
-              : { type: 'reservation', mode: 'view', reservation }
-          )
-        }
+        onBlockClick={(reservation) => setModal({ type: 'guestActions', reservation })}
         onMaintenanceClick={(period) => setModal({ type: 'maintenance', mode: 'edit', period })}
       />
 
@@ -207,6 +201,7 @@ function StayView() {
           guest={getGuestById(modal.reservation.guestId)}
           room={getRoomById(modal.reservation.roomId)}
           onClose={() => setModal(null)}
+          onView={() => setModal({ type: 'reservation', mode: 'view', reservation: modal.reservation })}
           onEdit={() => setModal({ type: 'reservation', mode: 'edit', reservation: modal.reservation })}
           onAddPayment={() => setModal({ type: 'addPayment', reservation: modal.reservation })}
           onAddBooking={() => setModal({ type: 'reservation', mode: 'create', prefill: {} })}

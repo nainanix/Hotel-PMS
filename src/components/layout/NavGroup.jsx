@@ -1,17 +1,37 @@
-import { useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { ChevronDown } from 'lucide-react'
 
-function NavGroup({ label, icon: Icon, items }) {
+function NavGroup({ label, icon: Icon, items, open, onOpen, onClose }) {
   const { pathname } = useLocation()
   const hasActiveChild = items.some((item) => item.to === pathname)
-  const [open, setOpen] = useState(hasActiveChild)
+  const rootRef = useRef(null)
+
+  // Closes as soon as a click lands outside this group's own button/panel —
+  // covers clicking another section of the sidebar, another dropdown, or
+  // anywhere else in the app, without needing every other element to know
+  // about this one.
+  useEffect(() => {
+    if (!open) return
+    function handlePointerDown(e) {
+      if (rootRef.current && !rootRef.current.contains(e.target)) {
+        onClose()
+      }
+    }
+    document.addEventListener('mousedown', handlePointerDown)
+    return () => document.removeEventListener('mousedown', handlePointerDown)
+  }, [open, onClose])
+
+  function handleToggle() {
+    if (open) onClose()
+    else onOpen()
+  }
 
   return (
-    <div>
+    <div ref={rootRef}>
       <button
         type="button"
-        onClick={() => setOpen((o) => !o)}
+        onClick={handleToggle}
         aria-expanded={open}
         className={[
           'flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
@@ -35,6 +55,7 @@ function NavGroup({ label, icon: Icon, items }) {
             <NavLink
               key={item.to}
               to={item.to}
+              onClick={onClose}
               className={({ isActive }) =>
                 [
                   'rounded-lg px-2.5 py-1.5 text-sm transition-colors',

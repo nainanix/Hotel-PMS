@@ -18,7 +18,7 @@ const FILTERS = {
 function GuestDatabase() {
   const [activeTab, setActiveTab] = useState('all')
   const [query, setQuery] = useState('')
-  const [view, setView] = useState('list')
+  const [view, setView] = useState('grid')
 
   const guests = useMemo(() => getGuestsWithResidenceStatus(), [])
 

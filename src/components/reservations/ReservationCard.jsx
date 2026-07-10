@@ -2,9 +2,12 @@ import Badge from '../ui/Badge'
 import { formatDateShort } from '../../utils/dates'
 import { formatCurrency } from '../../utils/format'
 
-function ReservationCard({ reservation }) {
+function ReservationCard({ reservation, onClick }) {
   return (
-    <div className="rounded-xl border border-navy-100 bg-surface p-4 transition-colors hover:border-gold-300 dark:border-navy-700 dark:hover:border-gold-500/50">
+    <div
+      onClick={onClick}
+      className="cursor-pointer rounded-xl border border-navy-100 bg-surface p-4 transition-colors hover:border-gold-300 dark:border-navy-700 dark:hover:border-gold-500/50"
+    >
       <div className="flex items-start justify-between gap-2">
         <div>
           <p className="font-medium text-navy-600 dark:text-navy-50">{reservation.guestName}</p>

@@ -9,6 +9,11 @@ import SearchInput from '../components/ui/SearchInput'
 import Badge from '../components/ui/Badge'
 import { Table, Th, Td } from '../components/ui/Table'
 import ReservationCard from '../components/reservations/ReservationCard'
+import ReservationModal from '../components/stayview/ReservationModal'
+import GuestActionsModal from '../components/stayview/GuestActionsModal'
+import RoomMoveModal from '../components/stayview/RoomMoveModal'
+import AddPaymentModal from '../components/stayview/AddPaymentModal'
+import InvoiceModal from '../components/stayview/InvoiceModal'
 import {
   getReservationsDetailed,
   getReservationSummaryStats,
@@ -16,6 +21,13 @@ import {
   getActiveStaysList,
   getPipelineRateBreakdown,
   getRoomStatusBreakdown,
+  getGuests,
+  getGuestById,
+  getRooms,
+  getRoomById,
+  addReservation,
+  updateReservation,
+  addPayment,
 } from '../data/api'
 import { formatDateShort, offsetISODate } from '../utils/dates'
 import { formatCurrency } from '../utils/format'
@@ -32,11 +44,63 @@ const FILTERS = {
 function Reservations() {
   const [activeTab, setActiveTab] = useState('all')
   const [query, setQuery] = useState('')
-  const [view, setView] = useState('list')
+  const [view, setView] = useState('grid')
   const [detail, setDetail] = useState(null)
+  const [modal, setModal] = useState(null)
+  const [refreshKey, setRefreshKey] = useState(0)
+  // modal shapes:
+  //  { type: 'reservation', mode: 'view'|'edit'|'create', prefill?, reservation? }
+  //  { type: 'guestActions', reservation }
+  //  { type: 'roomMove', reservation }
+  //  { type: 'addPayment', reservation }
+  //  { type: 'invoice', reservation }
 
-  const reservations = useMemo(() => getReservationsDetailed(), [])
-  const stats = useMemo(() => getReservationSummaryStats(), [])
+  const reservations = useMemo(
+    () => getReservationsDetailed(),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [refreshKey]
+  )
+  const stats = useMemo(
+    () => getReservationSummaryStats(),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [refreshKey]
+  )
+  const guests = getGuests()
+  const rooms = getRooms()
+
+  function refresh() {
+    setRefreshKey((k) => k + 1)
+  }
+
+  function handleCreateReservation(data) {
+    addReservation(data)
+    refresh()
+    setModal(null)
+  }
+
+  function handleUpdateReservation(id, updates) {
+    updateReservation(id, updates)
+    refresh()
+    setModal(null)
+  }
+
+  function handleVoidReservation() {
+    if (modal?.reservation) updateReservation(modal.reservation.id, { status: 'cancelled' })
+    refresh()
+    setModal(null)
+  }
+
+  function handleRoomMove(newRoomId) {
+    if (modal?.reservation) updateReservation(modal.reservation.id, { roomId: newRoomId })
+    refresh()
+    setModal(null)
+  }
+
+  function handleAddPayment(amount) {
+    if (modal?.reservation) addPayment(modal.reservation.id, amount)
+    refresh()
+    setModal(null)
+  }
 
   const tabs = [
     { key: 'all', label: 'All', count: reservations.length },
@@ -110,7 +174,11 @@ function Reservations() {
           </thead>
           <tbody>
             {filtered.map((reservation) => (
-              <tr key={reservation.id} className="hover:bg-surface-muted/60">
+              <tr
+                key={reservation.id}
+                onClick={() => setModal({ type: 'guestActions', reservation })}
+                className="cursor-pointer hover:bg-surface-muted/60"
+              >
                 <Td className="font-medium text-navy-600 dark:text-navy-50">{reservation.id}</Td>
                 <Td>{reservation.guestName}</Td>
                 <Td>
@@ -144,9 +212,70 @@ function Reservations() {
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((reservation) => (
-            <ReservationCard key={reservation.id} reservation={reservation} />
+            <ReservationCard
+              key={reservation.id}
+              reservation={reservation}
+              onClick={() => setModal({ type: 'guestActions', reservation })}
+            />
           ))}
         </div>
+      )}
+
+      {modal?.type === 'guestActions' && (
+        <GuestActionsModal
+          reservation={modal.reservation}
+          guest={getGuestById(modal.reservation.guestId)}
+          room={getRoomById(modal.reservation.roomId)}
+          onClose={() => setModal(null)}
+          onView={() => setModal({ type: 'reservation', mode: 'view', reservation: modal.reservation })}
+          onEdit={() => setModal({ type: 'reservation', mode: 'edit', reservation: modal.reservation })}
+          onAddPayment={() => setModal({ type: 'addPayment', reservation: modal.reservation })}
+          onAddBooking={() => setModal({ type: 'reservation', mode: 'create', prefill: {} })}
+          onRoomMove={() => setModal({ type: 'roomMove', reservation: modal.reservation })}
+          onVoid={handleVoidReservation}
+          onPrintInvoice={() => setModal({ type: 'invoice', reservation: modal.reservation })}
+        />
+      )}
+
+      {modal?.type === 'reservation' && (
+        <ReservationModal
+          mode={modal.mode}
+          guests={guests}
+          rooms={rooms}
+          prefill={modal.prefill}
+          reservation={modal.reservation}
+          onClose={() => setModal(null)}
+          onCreate={handleCreateReservation}
+          onUpdate={handleUpdateReservation}
+        />
+      )}
+
+      {modal?.type === 'roomMove' && (
+        <RoomMoveModal
+          reservation={modal.reservation}
+          guest={getGuestById(modal.reservation.guestId)}
+          rooms={rooms}
+          onClose={() => setModal(null)}
+          onSubmit={handleRoomMove}
+        />
+      )}
+
+      {modal?.type === 'addPayment' && (
+        <AddPaymentModal
+          reservation={modal.reservation}
+          guest={getGuestById(modal.reservation.guestId)}
+          onClose={() => setModal(null)}
+          onSubmit={handleAddPayment}
+        />
+      )}
+
+      {modal?.type === 'invoice' && (
+        <InvoiceModal
+          reservation={modal.reservation}
+          guest={getGuestById(modal.reservation.guestId)}
+          room={getRoomById(modal.reservation.roomId)}
+          onClose={() => setModal(null)}
+        />
       )}
 
       {detail === 'checkins' && (

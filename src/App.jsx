@@ -21,7 +21,6 @@ import {
   ListChecks,
   FileClock,
   AlertTriangle,
-  Store,
   Lock,
   FileDown,
 } from 'lucide-react'
@@ -187,12 +186,6 @@ function App() {
                   }
                 />
 
-                <Route
-                  path="b2b-marketplace"
-                  element={
-                    <Placeholder icon={Store} title="B2B Marketplace" description="Connect with travel partners and corporate accounts." />
-                  }
-                />
                 <Route
                   path="net-locks"
                   element={
