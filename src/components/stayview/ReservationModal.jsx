@@ -8,9 +8,12 @@ import { nightsBetween, offsetISODate, formatDateLong, addDays, parseISODate, to
 import { formatCurrency } from '../../utils/format'
 import { hasRoomConflict, addGuest } from '../../data/api'
 
+// Nightly rate card (INR) — kept in sync with the totals in
+// data/reservations.js so historical and newly-created bookings price
+// identically.
 const BASE_RATE = {
-  'Deluxe King Room': 200,
-  'Luxury Suite Room': 320,
+  'Deluxe King Room': 6500,
+  'Luxury Suite Room': 11000,
 }
 
 const inputClass =
@@ -89,7 +92,7 @@ function ReservationModal({ mode, guests, rooms, prefill, reservation, onClose, 
 
   const room = rooms.find((r) => r.id === roomId)
   const nights = Math.max(nightsBetween(checkIn, checkOut), 0)
-  const total = room ? (BASE_RATE[room.type] ?? 200) * nights : 0
+  const total = room ? (BASE_RATE[room.type] ?? 6500) * nights : 0
   const conflict = roomId && nights > 0 && hasRoomConflict(roomId, checkIn, checkOut)
   const canSubmit = firstName.trim() && lastName.trim() && roomId && nights > 0 && !conflict
 
@@ -119,20 +122,22 @@ function ReservationModal({ mode, guests, rooms, prefill, reservation, onClose, 
             <input
               type="text"
               required
+              autoComplete="off"
+              name="reservation-guest-first-name"
               className={inputClass}
               value={firstName}
               onChange={(e) => setFirstName(e.target.value)}
-              placeholder="Jordan"
             />
           </Field>
           <Field label="Last Name">
             <input
               type="text"
               required
+              autoComplete="off"
+              name="reservation-guest-last-name"
               className={inputClass}
               value={lastName}
               onChange={(e) => setLastName(e.target.value)}
-              placeholder="Ellis"
             />
           </Field>
         </div>

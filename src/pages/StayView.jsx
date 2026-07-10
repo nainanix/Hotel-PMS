@@ -1,24 +1,23 @@
 import { useMemo, useState } from 'react'
-import { Plus, PieChart, DollarSign, TrendingUp, Wallet } from 'lucide-react'
+import { Plus, PieChart, IndianRupee, TrendingUp, Wallet } from 'lucide-react'
 import Button from '../components/ui/Button'
 import StatCard from '../components/ui/StatCard'
 import StatDetailModal from '../components/ui/StatDetailModal'
-import OccupancyBreakdown from '../components/ui/OccupancyBreakdown'
 import StayViewGrid from '../components/stayview/StayViewGrid'
 import MonthTabs from '../components/stayview/MonthTabs'
 import ReservationModal from '../components/stayview/ReservationModal'
 import CellChoiceModal from '../components/stayview/CellChoiceModal'
 import MaintenanceModal from '../components/stayview/MaintenanceModal'
 import {
-  getKeyMetrics,
+  getMonthlyMetrics,
   getRooms,
   getGuests,
   addReservation,
   addMaintenancePeriod,
   updateMaintenancePeriod,
   removeMaintenancePeriod,
-  getRoomStatusBreakdown,
-  getActiveRateBreakdown,
+  getOccupancyByDay,
+  getRateBreakdownForMonth,
   getRevenueByRoomTypeForMonth,
 } from '../data/api'
 import { formatCurrency } from '../utils/format'
@@ -35,7 +34,12 @@ function StayView() {
   //  { type: 'maintenance', mode: 'create'|'edit', prefill?, period? }
 
   const metrics = useMemo(
-    () => getKeyMetrics(cursor.year, cursor.month),
+    () => getMonthlyMetrics(cursor.year, cursor.month),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [cursor.year, cursor.month, refreshKey]
+  )
+  const occupancyByDay = useMemo(
+    () => getOccupancyByDay(cursor.year, cursor.month),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [cursor.year, cursor.month, refreshKey]
   )
@@ -101,7 +105,7 @@ function StayView() {
         <StatCard
           label="ADR"
           value={formatCurrency(metrics.adr)}
-          icon={DollarSign}
+          icon={IndianRupee}
           hint="Average Daily Rate"
           onClick={() => setDetail('adr')}
         />
@@ -170,24 +174,27 @@ function StayView() {
         <StatDetailModal
           title="Occupancy"
           value={`${metrics.occupancyRate}%`}
-          hint="Today, across all rooms"
+          hint={`Average daily occupancy, ${monthLabel}`}
+          rows={occupancyByDay.map((d) => ({
+            label: `Day ${d.day}`,
+            sublabel: `${d.occupiedRooms} room${d.occupiedRooms === 1 ? '' : 's'} occupied`,
+            value: `${d.rate}%`,
+          }))}
           onClose={() => setDetail(null)}
-        >
-          <OccupancyBreakdown breakdown={getRoomStatusBreakdown()} />
-        </StatDetailModal>
+        />
       )}
 
       {detail === 'adr' && (
         <StatDetailModal
           title="Average Daily Rate"
           value={formatCurrency(metrics.adr)}
-          hint="Mean nightly rate across occupied rooms today"
-          rows={getActiveRateBreakdown().map((r) => ({
+          hint={`Mean nightly rate across bookings, ${monthLabel}`}
+          rows={getRateBreakdownForMonth(cursor.year, cursor.month).map((r) => ({
             label: r.guestName,
             sublabel: `Room ${r.roomNumber}`,
             value: formatCurrency(r.rate),
           }))}
-          emptyLabel="No rooms currently occupied"
+          emptyLabel="No bookings this month"
           onClose={() => setDetail(null)}
         />
       )}

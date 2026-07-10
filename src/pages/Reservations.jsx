@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { CalendarCheck, BedDouble, DollarSign, PieChart } from 'lucide-react'
+import { CalendarCheck, BedDouble, IndianRupee, PieChart } from 'lucide-react'
 import StatCard from '../components/ui/StatCard'
 import StatDetailModal from '../components/ui/StatDetailModal'
 import OccupancyBreakdown from '../components/ui/OccupancyBreakdown'
@@ -72,7 +72,7 @@ function Reservations() {
         <StatCard
           label="Avg Daily Rate"
           value={formatCurrency(stats.avgDailyRate)}
-          icon={DollarSign}
+          icon={IndianRupee}
           onClick={() => setDetail('adr')}
         />
         <StatCard

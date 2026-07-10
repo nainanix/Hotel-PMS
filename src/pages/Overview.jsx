@@ -1,23 +1,21 @@
 import { useMemo, useState } from 'react'
-import { PieChart, DollarSign, TrendingUp, Wallet, LogIn, LogOut } from 'lucide-react'
+import { PieChart, IndianRupee, TrendingUp, Wallet, LogIn, LogOut } from 'lucide-react'
 import StatCard from '../components/ui/StatCard'
 import StatDetailModal from '../components/ui/StatDetailModal'
-import OccupancyBreakdown from '../components/ui/OccupancyBreakdown'
 import ChartCard from '../components/overview/ChartCard'
 import OccupancyTrendChart from '../components/overview/OccupancyTrendChart'
 import RevenueByRoomTypeChart from '../components/overview/RevenueByRoomTypeChart'
 import GuestMixDonut from '../components/overview/GuestMixDonut'
 import UpcomingList from '../components/overview/UpcomingList'
 import {
-  getKeyMetrics,
+  getMonthlyMetrics,
   getOccupancyByDay,
   getRevenueByRoomType,
   getRevenueByRoomTypeForMonth,
   getGuestStatusBreakdown,
   getUpcomingArrivals,
   getUpcomingDepartures,
-  getRoomStatusBreakdown,
-  getActiveRateBreakdown,
+  getRateBreakdownForMonth,
 } from '../data/api'
 import { formatCurrency } from '../utils/format'
 
@@ -27,7 +25,7 @@ function Overview() {
   const month = now.getMonth()
   const [detail, setDetail] = useState(null)
 
-  const metrics = useMemo(() => getKeyMetrics(year, month), [year, month])
+  const metrics = useMemo(() => getMonthlyMetrics(year, month), [year, month])
   const occupancyByDay = useMemo(() => getOccupancyByDay(year, month), [year, month])
   const revenueByRoomType = useMemo(() => getRevenueByRoomType(), [])
   const guestMix = useMemo(() => getGuestStatusBreakdown(), [])
@@ -48,7 +46,7 @@ function Overview() {
         <StatCard
           label="ADR"
           value={formatCurrency(metrics.adr)}
-          icon={DollarSign}
+          icon={IndianRupee}
           hint="Average Daily Rate"
           onClick={() => setDetail('adr')}
         />
@@ -92,24 +90,27 @@ function Overview() {
         <StatDetailModal
           title="Occupancy"
           value={`${metrics.occupancyRate}%`}
-          hint="Today, across all rooms"
+          hint={`Average daily occupancy, ${monthLabel}`}
+          rows={occupancyByDay.map((d) => ({
+            label: `Day ${d.day}`,
+            sublabel: `${d.occupiedRooms} room${d.occupiedRooms === 1 ? '' : 's'} occupied`,
+            value: `${d.rate}%`,
+          }))}
           onClose={() => setDetail(null)}
-        >
-          <OccupancyBreakdown breakdown={getRoomStatusBreakdown()} />
-        </StatDetailModal>
+        />
       )}
 
       {detail === 'adr' && (
         <StatDetailModal
           title="Average Daily Rate"
           value={formatCurrency(metrics.adr)}
-          hint="Mean nightly rate across occupied rooms today"
-          rows={getActiveRateBreakdown().map((r) => ({
+          hint={`Mean nightly rate across bookings, ${monthLabel}`}
+          rows={getRateBreakdownForMonth(year, month).map((r) => ({
             label: r.guestName,
             sublabel: `Room ${r.roomNumber}`,
             value: formatCurrency(r.rate),
           }))}
-          emptyLabel="No rooms currently occupied"
+          emptyLabel="No bookings this month"
           onClose={() => setDetail(null)}
         />
       )}

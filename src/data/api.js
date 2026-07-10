@@ -256,29 +256,42 @@ export function getOccupancyStats() {
   }
 }
 
-// Today's ADR (Average Daily Rate) — mean nightly rate across rooms
-// currently occupied. RevPAR (Revenue Per Available Room) follows the
-// standard formula: ADR × occupancy rate, expressed here as total nightly
-// revenue today spread across every room in inventory, occupied or not.
-export function getKeyMetrics(year, month) {
-  const activeReservations = RESERVATIONS.filter(isActiveToday)
-  const nightlyRevenueToday = activeReservations.reduce((sum, reservation) => {
-    const nights = nightsBetween(reservation.checkIn, reservation.checkOut) || 1
-    return sum + reservation.total / nights
-  }, 0)
-
-  const adr = activeReservations.length ? nightlyRevenueToday / activeReservations.length : 0
-  const revpar = ROOMS.length ? nightlyRevenueToday / ROOMS.length : 0
+// Month-scoped KPIs, all derived from the same month so Occupancy/ADR/RevPAR/
+// Monthly Revenue stay mathematically consistent with each other and with
+// whichever month is currently being viewed (Overview's current month, or
+// Stay View's browsed month):
+//  - occupancyRate: mean of each day's occupied-room percentage in the month
+//  - adr: mean nightly rate across every non-cancelled reservation touching
+//    the month
+//  - revpar: ADR × occupancy rate (standard RevPAR formula)
+//  - monthlyRevenue: total booked revenue for reservations checking in
+//    during the month
+export function getMonthlyMetrics(year, month) {
+  const dailyOccupancy = getOccupancyByDay(year, month)
+  const occupancyRate = dailyOccupancy.length
+    ? Math.round(dailyOccupancy.reduce((sum, d) => sum + d.rate, 0) / dailyOccupancy.length)
+    : 0
 
   const monthStart = toISODate(new Date(year, month, 1))
   const monthEnd = toISODate(new Date(year, month + 1, 1))
+
+  const overlapping = RESERVATIONS.filter(
+    (reservation) => reservation.status !== 'cancelled' && overlapsRange(reservation, monthStart, monthEnd)
+  )
+  const nightlyRates = overlapping.map((reservation) => {
+    const nights = nightsBetween(reservation.checkIn, reservation.checkOut) || 1
+    return reservation.total / nights
+  })
+  const adr = nightlyRates.length ? nightlyRates.reduce((sum, rate) => sum + rate, 0) / nightlyRates.length : 0
+  const revpar = adr * (occupancyRate / 100)
+
   const monthlyRevenue = RESERVATIONS.filter(
     (reservation) =>
       reservation.status !== 'cancelled' && reservation.checkIn >= monthStart && reservation.checkIn < monthEnd
   ).reduce((sum, reservation) => sum + reservation.total, 0)
 
   return {
-    occupancyRate: getOccupancyStats().occupancyRate,
+    occupancyRate,
     adr: Math.round(adr),
     revpar: Math.round(revpar),
     monthlyRevenue: Math.round(monthlyRevenue),
@@ -416,10 +429,15 @@ export function getRoomStatusBreakdown() {
   return { occupied, available, maintenance }
 }
 
-// Nightly rate for each room occupied right now — feeds the ADR/RevPAR
-// detail popups on Overview.
-export function getActiveRateBreakdown() {
-  return RESERVATIONS.filter(isActiveToday).map((reservation) => {
+// Nightly rate for every non-cancelled reservation touching the given
+// month — feeds the ADR detail popup on Overview and Stay View, matching how
+// getMonthlyMetrics computes ADR for that same month.
+export function getRateBreakdownForMonth(year, month) {
+  const monthStart = toISODate(new Date(year, month, 1))
+  const monthEnd = toISODate(new Date(year, month + 1, 1))
+  return RESERVATIONS.filter(
+    (reservation) => reservation.status !== 'cancelled' && overlapsRange(reservation, monthStart, monthEnd)
+  ).map((reservation) => {
     const nights = nightsBetween(reservation.checkIn, reservation.checkOut) || 1
     return {
       roomNumber: getRoomById(reservation.roomId)?.number ?? '—',

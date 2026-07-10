@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Wallet, ClipboardList, BedDouble, DollarSign } from 'lucide-react'
+import { Wallet, ClipboardList, BedDouble, IndianRupee } from 'lucide-react'
 import StatCard from '../components/ui/StatCard'
 import StatDetailModal from '../components/ui/StatDetailModal'
 import ChartCard from '../components/overview/ChartCard'
@@ -75,7 +75,7 @@ function Reports() {
         <StatCard
           label="Avg Rate"
           value={formatCurrency(analytics.avgRate)}
-          icon={DollarSign}
+          icon={IndianRupee}
           hint="Per night"
           onClick={() => setDetail('rate')}
         />
