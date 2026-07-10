@@ -8,11 +8,18 @@ import MonthTabs from '../components/stayview/MonthTabs'
 import ReservationModal from '../components/stayview/ReservationModal'
 import CellChoiceModal from '../components/stayview/CellChoiceModal'
 import MaintenanceModal from '../components/stayview/MaintenanceModal'
+import GuestActionsModal from '../components/stayview/GuestActionsModal'
+import RoomMoveModal from '../components/stayview/RoomMoveModal'
+import AddPaymentModal from '../components/stayview/AddPaymentModal'
 import {
   getMonthlyMetrics,
   getRooms,
   getGuests,
+  getGuestById,
+  getRoomById,
   addReservation,
+  updateReservation,
+  addPayment,
   addMaintenancePeriod,
   updateMaintenancePeriod,
   removeMaintenancePeriod,
@@ -30,8 +37,11 @@ function StayView() {
   const [detail, setDetail] = useState(null)
   // modal shapes:
   //  { type: 'choice', room, dateISO }
-  //  { type: 'reservation', mode: 'create'|'view', prefill?, reservation? }
+  //  { type: 'reservation', mode: 'create'|'view'|'edit', prefill?, reservation? }
   //  { type: 'maintenance', mode: 'create'|'edit', prefill?, period? }
+  //  { type: 'guestActions', reservation }
+  //  { type: 'roomMove', reservation }
+  //  { type: 'addPayment', reservation }
 
   const metrics = useMemo(
     () => getMonthlyMetrics(cursor.year, cursor.month),
@@ -56,6 +66,30 @@ function StayView() {
 
   function handleCreateReservation(data) {
     addReservation(data)
+    refresh()
+    setModal(null)
+  }
+
+  function handleUpdateReservation(id, updates) {
+    updateReservation(id, updates)
+    refresh()
+    setModal(null)
+  }
+
+  function handleVoidReservation() {
+    if (modal?.reservation) updateReservation(modal.reservation.id, { status: 'cancelled' })
+    refresh()
+    setModal(null)
+  }
+
+  function handleRoomMove(newRoomId) {
+    if (modal?.reservation) updateReservation(modal.reservation.id, { roomId: newRoomId })
+    refresh()
+    setModal(null)
+  }
+
+  function handleAddPayment(amount) {
+    if (modal?.reservation) addPayment(modal.reservation.id, amount)
     refresh()
     setModal(null)
   }
@@ -91,7 +125,13 @@ function StayView() {
         month={cursor.month}
         refreshKey={refreshKey}
         onCellClick={(room, dateISO) => setModal({ type: 'choice', room, dateISO })}
-        onBlockClick={(reservation) => setModal({ type: 'reservation', mode: 'view', reservation })}
+        onBlockClick={(reservation) =>
+          setModal(
+            reservation.status === 'checked-in'
+              ? { type: 'guestActions', reservation }
+              : { type: 'reservation', mode: 'view', reservation }
+          )
+        }
         onMaintenanceClick={(period) => setModal({ type: 'maintenance', mode: 'edit', period })}
       />
 
@@ -155,6 +195,40 @@ function StayView() {
           reservation={modal.reservation}
           onClose={() => setModal(null)}
           onCreate={handleCreateReservation}
+          onUpdate={handleUpdateReservation}
+        />
+      )}
+
+      {modal?.type === 'guestActions' && (
+        <GuestActionsModal
+          reservation={modal.reservation}
+          guest={getGuestById(modal.reservation.guestId)}
+          room={getRoomById(modal.reservation.roomId)}
+          onClose={() => setModal(null)}
+          onEdit={() => setModal({ type: 'reservation', mode: 'edit', reservation: modal.reservation })}
+          onAddPayment={() => setModal({ type: 'addPayment', reservation: modal.reservation })}
+          onAddBooking={() => setModal({ type: 'reservation', mode: 'create', prefill: {} })}
+          onRoomMove={() => setModal({ type: 'roomMove', reservation: modal.reservation })}
+          onVoid={handleVoidReservation}
+        />
+      )}
+
+      {modal?.type === 'roomMove' && (
+        <RoomMoveModal
+          reservation={modal.reservation}
+          guest={getGuestById(modal.reservation.guestId)}
+          rooms={rooms}
+          onClose={() => setModal(null)}
+          onSubmit={handleRoomMove}
+        />
+      )}
+
+      {modal?.type === 'addPayment' && (
+        <AddPaymentModal
+          reservation={modal.reservation}
+          guest={getGuestById(modal.reservation.guestId)}
+          onClose={() => setModal(null)}
+          onSubmit={handleAddPayment}
         />
       )}
 

@@ -5,8 +5,8 @@ import Button from '../ui/Button'
 import Badge from '../ui/Badge'
 import DatePicker from '../ui/DatePicker'
 import { nightsBetween, formatDateLong, addDays, parseISODate, toISODate } from '../../utils/dates'
-import { formatCurrency } from '../../utils/format'
-import { hasRoomConflict, addGuest } from '../../data/api'
+import { formatCurrency, formatTime, formatTimeOfDay } from '../../utils/format'
+import { hasRoomConflict, addGuest, updateGuest } from '../../data/api'
 
 // Nightly rate card (INR) — used only to propose a starting tariff when a
 // room type is picked; the tariff itself stays freely editable per booking.
@@ -14,6 +14,8 @@ const BASE_RATE = {
   'Deluxe King Room': 6500,
   'Luxury Suite Room': 11000,
 }
+
+const PROPERTY_LOCATION = 'EVOTEL Downtown'
 
 const BUSINESS_SOURCES = ['Walk-in', 'OTA', 'Travel Agent', 'Corporate', 'Direct Website', 'Phone Booking', 'Sales Team']
 const RATE_TYPES = ['Standard Rate', 'Corporate Rate', 'Package Rate', 'Promotional Rate', 'Government Rate', 'Long Stay Rate']
@@ -50,30 +52,55 @@ function DetailRow({ label, value }) {
   )
 }
 
-function ReservationModal({ mode, guests, rooms, prefill, reservation, onClose, onCreate }) {
-  const [firstName, setFirstName] = useState('')
-  const [lastName, setLastName] = useState('')
-  const [mobile, setMobile] = useState('')
-  const [email, setEmail] = useState('')
-  const [businessSource, setBusinessSource] = useState('')
-  const [status, setStatus] = useState('confirmed')
+function splitGuestName(name = '') {
+  const parts = name.trim().split(/\s+/)
+  return [parts[0] ?? '', parts.slice(1).join(' ')]
+}
+
+// Booking timestamps created before this feature only stored a bare date
+// (no time); newer ones store a full ISO datetime — handle both.
+function formatBookingDateTime(createdAt) {
+  if (!createdAt) return '—'
+  return createdAt.includes('T')
+    ? `${formatDateLong(createdAt.slice(0, 10))} · ${formatTime(createdAt)}`
+    : formatDateLong(createdAt)
+}
+
+function ReservationModal({ mode, guests, rooms, prefill, reservation, onClose, onCreate, onUpdate }) {
+  const isEdit = mode === 'edit' && Boolean(reservation)
+  const editGuest = isEdit ? guests.find((g) => g.id === reservation.guestId) : null
+  const [editFirst, editLast] = splitGuestName(editGuest?.name)
+
+  const [firstName, setFirstName] = useState(editFirst)
+  const [lastName, setLastName] = useState(editLast)
+  const [mobile, setMobile] = useState(editGuest?.phone ?? '')
+  const [email, setEmail] = useState(editGuest?.email ?? '')
+  const [businessSource, setBusinessSource] = useState(reservation?.businessSource ?? '')
+  const [status, setStatus] = useState(reservation?.status ?? 'confirmed')
 
   // roomId/checkIn may come from clicking a specific room+date cell on the
   // calendar (a deliberate action) but never fall back to a default room,
   // date, or reservation type beyond the "Confirmed" starting point above —
-  // those stay blank until manually chosen.
-  const initialRoom = rooms.find((r) => r.id === prefill?.roomId)
+  // those stay blank until manually chosen (edit mode pre-fills from the
+  // existing reservation instead).
+  const initialRoom = rooms.find((r) => r.id === (reservation?.roomId ?? prefill?.roomId))
   const [roomType, setRoomType] = useState(initialRoom?.type ?? '')
-  const [rateType, setRateType] = useState('')
-  const [roomId, setRoomId] = useState(prefill?.roomId ?? '')
-  const [numberOfRooms, setNumberOfRooms] = useState(1)
-  const [adults, setAdults] = useState(1)
-  const [children, setChildren] = useState(0)
-  const [checkIn, setCheckIn] = useState(prefill?.checkIn ?? '')
-  const [checkInTime, setCheckInTime] = useState('14:00')
-  const [checkOut, setCheckOut] = useState('')
-  const [checkOutTime, setCheckOutTime] = useState('11:00')
-  const [tariff, setTariff] = useState(() => (initialRoom ? String(BASE_RATE[initialRoom.type] ?? '') : ''))
+  const [rateType, setRateType] = useState(reservation?.rateType ?? '')
+  const [roomId, setRoomId] = useState(reservation?.roomId ?? prefill?.roomId ?? '')
+  const [numberOfRooms, setNumberOfRooms] = useState(reservation?.numberOfRooms ?? 1)
+  const [adults, setAdults] = useState(reservation?.adults ?? 1)
+  const [children, setChildren] = useState(reservation?.children ?? 0)
+  const [checkIn, setCheckIn] = useState(reservation?.checkIn ?? prefill?.checkIn ?? '')
+  const [checkInTime, setCheckInTime] = useState(reservation?.checkInTime || '14:00')
+  const [checkOut, setCheckOut] = useState(reservation?.checkOut ?? '')
+  const [checkOutTime, setCheckOutTime] = useState(reservation?.checkOutTime || '11:00')
+  const [tariff, setTariff] = useState(() => {
+    if (isEdit) {
+      const n = nightsBetween(reservation.checkIn, reservation.checkOut) || 1
+      return String(Math.round(reservation.total / n))
+    }
+    return initialRoom ? String(BASE_RATE[initialRoom.type] ?? '') : ''
+  })
 
   const roomTypes = [...new Set(rooms.map((r) => r.type))]
   const roomsOfType = rooms.filter((r) => r.type === roomType)
@@ -98,7 +125,9 @@ function ReservationModal({ mode, guests, rooms, prefill, reservation, onClose, 
   if (mode === 'view' && reservation) {
     const room = rooms.find((r) => r.id === reservation.roomId)
     const guest = guests.find((g) => g.id === reservation.guestId)
-    const nights = nightsBetween(reservation.checkIn, reservation.checkOut)
+    const nights = nightsBetween(reservation.checkIn, reservation.checkOut) || 1
+    const adr = Math.round(reservation.total / nights)
+    const amountPaid = reservation.amountPaid ?? 0
 
     return (
       <Modal title="Reservation Details" onClose={onClose} maximizable={false} footer={
@@ -111,7 +140,7 @@ function ReservationModal({ mode, guests, rooms, prefill, reservation, onClose, 
             <div>
               <p className="text-lg font-semibold text-navy-600 dark:text-navy-50">{guest?.name ?? 'Unknown guest'}</p>
               <p className="text-navy-300 dark:text-navy-400">
-                Room {room?.number} · {room?.type}
+                {PROPERTY_LOCATION} · Room {room?.number} · {room?.type}
               </p>
               {(guest?.phone || guest?.email) && (
                 <p className="text-navy-300 dark:text-navy-400">
@@ -121,13 +150,27 @@ function ReservationModal({ mode, guests, rooms, prefill, reservation, onClose, 
             </div>
             <Badge status={reservation.status} />
           </div>
+
           <div className="grid grid-cols-2 gap-4 rounded-xl bg-surface-muted p-4">
-            <DetailRow label="Check-in" value={formatDateLong(reservation.checkIn)} />
-            <DetailRow label="Check-out" value={formatDateLong(reservation.checkOut)} />
+            <DetailRow label="Reservation No." value={reservation.id} />
+            <DetailRow label="Booking Date" value={formatBookingDateTime(reservation.createdAt)} />
+            <DetailRow
+              label="Arrival"
+              value={`${formatDateLong(reservation.checkIn)}${
+                reservation.checkInTime ? ` · ${formatTimeOfDay(reservation.checkInTime)}` : ''
+              }`}
+            />
+            <DetailRow
+              label="Departure"
+              value={`${formatDateLong(reservation.checkOut)}${
+                reservation.checkOutTime ? ` · ${formatTimeOfDay(reservation.checkOutTime)}` : ''
+              }`}
+            />
+            <DetailRow label="Room Type" value={room?.type ?? '—'} />
+            <DetailRow label="Rate Plan" value={reservation.rateType || '—'} />
+            <DetailRow label="Average Daily Rate" value={formatCurrency(adr)} />
             <DetailRow label="Nights" value={nights} />
-            <DetailRow label="Total" value={formatCurrency(reservation.total)} />
             {reservation.businessSource && <DetailRow label="Business Source" value={reservation.businessSource} />}
-            {reservation.rateType && <DetailRow label="Rate Type" value={reservation.rateType} />}
             {(reservation.adults || reservation.children) && (
               <DetailRow
                 label="Occupancy"
@@ -137,6 +180,12 @@ function ReservationModal({ mode, guests, rooms, prefill, reservation, onClose, 
               />
             )}
             {reservation.numberOfRooms > 1 && <DetailRow label="Rooms" value={reservation.numberOfRooms} />}
+          </div>
+
+          <div className="grid grid-cols-3 gap-4 rounded-xl bg-surface-muted p-4">
+            <DetailRow label="Total Amount" value={formatCurrency(reservation.total)} />
+            <DetailRow label="Amount Paid" value={formatCurrency(amountPaid)} />
+            <DetailRow label="Balance Due" value={formatCurrency(reservation.total - amountPaid)} />
           </div>
         </div>
       </Modal>
@@ -153,7 +202,9 @@ function ReservationModal({ mode, guests, rooms, prefill, reservation, onClose, 
   // would silently corrupt those figures. numberOfRooms is captured as
   // booking metadata for now, not multiplied into the price.
   const total = tariffValue > 0 ? tariffValue * nights : 0
-  const conflict = roomId && nights > 0 && hasRoomConflict(roomId, checkIn, checkOut)
+  const amountPaid = isEdit ? reservation.amountPaid ?? 0 : 0
+  const conflict =
+    roomId && nights > 0 && hasRoomConflict(roomId, checkIn, checkOut, isEdit ? reservation.id : undefined)
   const canSubmit =
     firstName.trim() &&
     lastName.trim() &&
@@ -169,9 +220,8 @@ function ReservationModal({ mode, guests, rooms, prefill, reservation, onClose, 
   function handleSubmit(e) {
     e.preventDefault()
     if (!canSubmit) return
-    const guest = addGuest({ name: `${firstName.trim()} ${lastName.trim()}`, email: email.trim(), phone: mobile.trim() })
-    onCreate({
-      guestId: guest.id,
+
+    const fields = {
       roomId,
       checkIn,
       checkOut,
@@ -185,24 +235,44 @@ function ReservationModal({ mode, guests, rooms, prefill, reservation, onClose, 
       rateType,
       adults: Number(adults),
       children: Number(children),
-    })
+    }
+
+    if (isEdit) {
+      updateGuest(reservation.guestId, {
+        name: `${firstName.trim()} ${lastName.trim()}`,
+        email: email.trim(),
+        phone: mobile.trim(),
+      })
+      onUpdate(reservation.id, fields)
+    } else {
+      const guest = addGuest({ name: `${firstName.trim()} ${lastName.trim()}`, email: email.trim(), phone: mobile.trim() })
+      onCreate({ guestId: guest.id, ...fields })
+    }
   }
 
   return (
     <Modal
-      title="Create Reservation"
+      title={isEdit ? 'Edit Reservation' : 'Create Reservation'}
       onClose={onClose}
       defaultMaximized
       footer={
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
           <Button variant="primary" onClick={handleSubmit} disabled={!canSubmit}>
-            Create Reservation
+            {isEdit ? 'Save Changes' : 'Create Reservation'}
           </Button>
         </div>
       }
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-4 text-sm">
+        {isEdit && (
+          <div className="grid grid-cols-3 gap-4 rounded-xl bg-surface-muted p-4">
+            <DetailRow label="Reservation No." value={reservation.id} />
+            <DetailRow label="Location" value={PROPERTY_LOCATION} />
+            <DetailRow label="Booking Date" value={formatBookingDateTime(reservation.createdAt)} />
+          </div>
+        )}
+
         <SectionLabel>Guest Details</SectionLabel>
         <div className="grid grid-cols-2 gap-4">
           <Field label="First Name">
@@ -267,6 +337,8 @@ function ReservationModal({ mode, guests, rooms, prefill, reservation, onClose, 
             <select className={inputClass} value={status} onChange={(e) => setStatus(e.target.value)}>
               <option value="confirmed">Confirmed</option>
               <option value="pending">Pending</option>
+              {isEdit && <option value="checked-in">Checked-In</option>}
+              {isEdit && <option value="checked-out">Checked-Out</option>}
             </select>
           </Field>
         </div>
@@ -399,6 +471,14 @@ function ReservationModal({ mode, guests, rooms, prefill, reservation, onClose, 
           </span>
           <span className="text-base font-semibold text-navy-600 dark:text-navy-50">{formatCurrency(total)}</span>
         </div>
+
+        {isEdit && (
+          <div className="grid grid-cols-3 gap-4 rounded-xl bg-surface-muted px-4 py-3">
+            <DetailRow label="Total Amount" value={formatCurrency(total)} />
+            <DetailRow label="Amount Paid" value={formatCurrency(amountPaid)} />
+            <DetailRow label="Balance Due" value={formatCurrency(total - amountPaid)} />
+          </div>
+        )}
       </form>
     </Modal>
   )

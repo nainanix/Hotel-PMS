@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight } from 'lucide-react'
 import { formatDateLong, parseISODate, toISODate } from '../../utils/dates'
 
@@ -20,6 +20,22 @@ function DatePicker({ value, onChange, className = '' }) {
     const d = value ? parseISODate(value) : new Date()
     return { year: d.getFullYear(), month: d.getMonth() }
   })
+  const rootRef = useRef(null)
+
+  // Close on the first outside interaction rather than waiting for a "click"
+  // (down+up on the same element) — mousedown fires immediately on press, so
+  // a click elsewhere closes the calendar right away instead of sometimes
+  // needing a second click before it registers.
+  useEffect(() => {
+    if (!open) return
+    function handlePointerDown(e) {
+      if (rootRef.current && !rootRef.current.contains(e.target)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handlePointerDown)
+    return () => document.removeEventListener('mousedown', handlePointerDown)
+  }, [open])
 
   function handleOpen() {
     const d = value ? parseISODate(value) : new Date()
@@ -42,7 +58,7 @@ function DatePicker({ value, onChange, className = '' }) {
   const todayISO = toISODate(new Date())
 
   return (
-    <div className={`relative ${className}`}>
+    <div ref={rootRef} className={`relative ${className}`}>
       <button
         type="button"
         onClick={handleOpen}
@@ -53,9 +69,7 @@ function DatePicker({ value, onChange, className = '' }) {
       </button>
 
       {open && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-full z-50 mt-2 w-64 max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-navy-100/10 bg-surface p-3 shadow-2xl dark:border-white/10">
+        <div className="absolute right-0 top-full z-50 mt-2 w-64 max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-navy-100/10 bg-surface p-3 shadow-2xl dark:border-white/10">
             <div className="mb-2 flex items-center justify-between">
               <button
                 type="button"
@@ -111,7 +125,6 @@ function DatePicker({ value, onChange, className = '' }) {
               })}
             </div>
           </div>
-        </>
       )}
     </div>
   )

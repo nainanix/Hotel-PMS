@@ -69,6 +69,13 @@ export function addGuest({ name, email = '', phone = '', status = 'New', lastSta
   return guest
 }
 
+export function updateGuest(id, updates) {
+  const guest = GUESTS.find((g) => g.id === id)
+  if (!guest) return null
+  Object.assign(guest, updates)
+  return guest
+}
+
 export function getReservations() {
   return RESERVATIONS
 }
@@ -92,10 +99,13 @@ export function isRoomUnderMaintenance(roomId, dateISO = TODAY) {
 // True if roomId already has a non-cancelled reservation, or a scheduled
 // maintenance period, overlapping the given date range. Used to block
 // double-bookings (including booking over scheduled maintenance).
-export function hasRoomConflict(roomId, checkIn, checkOut) {
+// excludeReservationId lets an in-progress edit ignore its own booking when
+// re-checking the room/date range it already occupies.
+export function hasRoomConflict(roomId, checkIn, checkOut, excludeReservationId) {
   const reservationConflict = RESERVATIONS.some(
     (reservation) =>
       reservation.roomId === roomId &&
+      reservation.id !== excludeReservationId &&
       reservation.status !== 'cancelled' &&
       overlapsRange(reservation, checkIn, checkOut)
   )
@@ -156,15 +166,31 @@ export function addReservation({
     checkOutTime,
     status,
     total,
+    amountPaid: 0,
     numberOfRooms,
     businessSource,
     roomType,
     rateType,
     adults,
     children,
-    createdAt: offsetISODate(0),
+    createdAt: new Date().toISOString(),
   }
   RESERVATIONS.push(reservation)
+  return reservation
+}
+
+export function updateReservation(id, updates) {
+  const reservation = RESERVATIONS.find((r) => r.id === id)
+  if (!reservation) return null
+  Object.assign(reservation, updates)
+  return reservation
+}
+
+// Records a payment against a reservation's folio balance.
+export function addPayment(id, amount) {
+  const reservation = RESERVATIONS.find((r) => r.id === id)
+  if (!reservation) return null
+  reservation.amountPaid = (reservation.amountPaid ?? 0) + amount
   return reservation
 }
 
