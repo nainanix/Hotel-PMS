@@ -4,7 +4,7 @@ function RevenueByRoomTypeChart({ data }) {
   const max = Math.max(...data.map((d) => d.revenue), 1)
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex h-full flex-col justify-center gap-5">
       {data.map((d) => (
         <div key={d.type}>
           <div className="mb-1.5 flex items-center justify-between text-sm">
