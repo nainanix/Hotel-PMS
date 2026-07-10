@@ -214,6 +214,7 @@ function ReservationModal({ mode, guests, rooms, prefill, reservation, onClose, 
               className={inputClass}
               value={firstName}
               onChange={(e) => setFirstName(e.target.value)}
+              placeholder="John"
             />
           </Field>
           <Field label="Last Name">
@@ -225,6 +226,7 @@ function ReservationModal({ mode, guests, rooms, prefill, reservation, onClose, 
               className={inputClass}
               value={lastName}
               onChange={(e) => setLastName(e.target.value)}
+              placeholder="Doe"
             />
           </Field>
           <Field label="Mobile Number">
