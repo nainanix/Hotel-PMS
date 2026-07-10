@@ -4,13 +4,12 @@ import Modal from '../ui/Modal'
 import Button from '../ui/Button'
 import Badge from '../ui/Badge'
 import DatePicker from '../ui/DatePicker'
-import { nightsBetween, offsetISODate, formatDateLong, addDays, parseISODate, toISODate } from '../../utils/dates'
+import { nightsBetween, formatDateLong, addDays, parseISODate, toISODate } from '../../utils/dates'
 import { formatCurrency } from '../../utils/format'
 import { hasRoomConflict, addGuest } from '../../data/api'
 
-// Nightly rate card (INR) — kept in sync with the totals in
-// data/reservations.js so historical and newly-created bookings price
-// identically.
+// Nightly rate card (INR) — used only to propose a starting tariff when a
+// room is picked; the tariff itself stays freely editable per booking.
 const BASE_RATE = {
   'Deluxe King Room': 6500,
   'Luxury Suite Room': 11000,
@@ -18,6 +17,9 @@ const BASE_RATE = {
 
 const inputClass =
   'w-full rounded-lg border border-navy-100 bg-surface px-3 py-2 text-sm text-navy-600 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold dark:border-navy-700 dark:text-navy-100'
+
+const tariffWrapClass =
+  'flex items-center gap-1.5 rounded-lg border border-navy-100 bg-surface px-3 py-2 text-sm text-navy-600 focus-within:border-gold focus-within:ring-1 focus-within:ring-gold dark:border-navy-700 dark:text-navy-100'
 
 function Field({ label, children }) {
   return (
@@ -31,19 +33,32 @@ function Field({ label, children }) {
 function ReservationModal({ mode, guests, rooms, prefill, reservation, onClose, onCreate }) {
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
-  const [roomId, setRoomId] = useState(prefill?.roomId ?? rooms[0]?.id ?? '')
-  const initialCheckIn = prefill?.checkIn ?? offsetISODate(0)
-  const [checkIn, setCheckIn] = useState(initialCheckIn)
-  const [checkOut, setCheckOut] = useState(
-    prefill?.checkOut ?? toISODate(addDays(parseISODate(initialCheckIn), 1))
-  )
-  const [status, setStatus] = useState('confirmed')
+  // roomId/checkIn may come from clicking a specific room+date cell on the
+  // calendar (a deliberate action) but never fall back to a default room,
+  // date, or status — those stay blank until manually chosen.
+  const [roomId, setRoomId] = useState(prefill?.roomId ?? '')
+  const [checkIn, setCheckIn] = useState(prefill?.checkIn ?? '')
+  const [checkOut, setCheckOut] = useState('')
+  const [status, setStatus] = useState('')
+  const [tariff, setTariff] = useState(() => {
+    const initialRoom = rooms.find((r) => r.id === prefill?.roomId)
+    return initialRoom ? String(BASE_RATE[initialRoom.type] ?? '') : ''
+  })
 
   // Check-out always follows check-in by one night until the guest picks a
   // different check-out date themselves.
   function handleCheckInChange(newCheckIn) {
     setCheckIn(newCheckIn)
     setCheckOut(toISODate(addDays(parseISODate(newCheckIn), 1)))
+  }
+
+  // Picking a room proposes that room type's rate-card tariff as a starting
+  // point — the front desk can still edit it before creating the booking.
+  function handleRoomChange(e) {
+    const newRoomId = e.target.value
+    setRoomId(newRoomId)
+    const newRoom = rooms.find((r) => r.id === newRoomId)
+    setTariff(newRoom ? String(BASE_RATE[newRoom.type] ?? '') : '')
   }
 
   if (mode === 'view' && reservation) {
@@ -91,10 +106,20 @@ function ReservationModal({ mode, guests, rooms, prefill, reservation, onClose, 
   }
 
   const room = rooms.find((r) => r.id === roomId)
-  const nights = Math.max(nightsBetween(checkIn, checkOut), 0)
-  const total = room ? (BASE_RATE[room.type] ?? 6500) * nights : 0
+  const nights = checkIn && checkOut ? Math.max(nightsBetween(checkIn, checkOut), 0) : 0
+  const tariffValue = Number(tariff)
+  const total = tariffValue > 0 ? tariffValue * nights : 0
   const conflict = roomId && nights > 0 && hasRoomConflict(roomId, checkIn, checkOut)
-  const canSubmit = firstName.trim() && lastName.trim() && roomId && nights > 0 && !conflict
+  const canSubmit =
+    firstName.trim() &&
+    lastName.trim() &&
+    roomId &&
+    checkIn &&
+    checkOut &&
+    status &&
+    nights > 0 &&
+    tariffValue > 0 &&
+    !conflict
 
   function handleSubmit(e) {
     e.preventDefault()
@@ -142,15 +167,34 @@ function ReservationModal({ mode, guests, rooms, prefill, reservation, onClose, 
           </Field>
         </div>
 
-        <Field label="Room">
-          <select className={inputClass} value={roomId} onChange={(e) => setRoomId(e.target.value)}>
-            {rooms.map((r) => (
-              <option key={r.id} value={r.id}>
-                Room {r.number} · {r.type}
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Room">
+            <select className={inputClass} value={roomId} onChange={handleRoomChange}>
+              <option value="" disabled>
+                Select a room
               </option>
-            ))}
-          </select>
-        </Field>
+              {rooms.map((r) => (
+                <option key={r.id} value={r.id}>
+                  Room {r.number} · {r.type}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Tariff (per night)">
+            <div className={tariffWrapClass}>
+              <span className="text-navy-300 dark:text-navy-500">₹</span>
+              <input
+                type="number"
+                min="0"
+                step="100"
+                required
+                className="w-full bg-transparent focus:outline-none"
+                value={tariff}
+                onChange={(e) => setTariff(e.target.value)}
+              />
+            </div>
+          </Field>
+        </div>
 
         <div className="grid grid-cols-2 gap-4">
           <Field label="Check-in">
@@ -163,6 +207,9 @@ function ReservationModal({ mode, guests, rooms, prefill, reservation, onClose, 
 
         <Field label="Status">
           <select className={inputClass} value={status} onChange={(e) => setStatus(e.target.value)}>
+            <option value="" disabled>
+              Select status
+            </option>
             <option value="confirmed">Confirmed</option>
             <option value="pending">Pending</option>
           </select>

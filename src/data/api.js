@@ -281,11 +281,15 @@ export function getDailyMetrics(dateISO = TODAY) {
   })
   const adr = nightlyRates.length ? nightlyRates.reduce((sum, rate) => sum + rate, 0) / nightlyRates.length : 0
   const revpar = adr * (occupancyRate / 100)
+  // Revenue actually earned on this date: the sum of nightly rates for every
+  // room occupied that night (not bookings placed that day).
+  const dailyRevenue = nightlyRates.reduce((sum, rate) => sum + rate, 0)
 
   return {
     occupancyRate,
     adr: Math.round(adr),
     revpar: Math.round(revpar),
+    dailyRevenue: Math.round(dailyRevenue),
   }
 }
 
@@ -364,6 +368,18 @@ export function getRevenueByRoomType() {
     totals.set(room.type, (totals.get(room.type) ?? 0) + reservation.total)
   })
   return Array.from(totals, ([type, revenue]) => ({ type, revenue }))
+}
+
+// Non-cancelled booking count by room type, all-time — pairs with
+// getRevenueByRoomType for the Revenue by Room Type detail popup on Overview.
+export function getBookingCountByRoomType() {
+  const counts = new Map()
+  RESERVATIONS.filter((reservation) => reservation.status !== 'cancelled').forEach((reservation) => {
+    const room = getRoomById(reservation.roomId)
+    if (!room) return
+    counts.set(room.type, (counts.get(room.type) ?? 0) + 1)
+  })
+  return Array.from(counts, ([type, count]) => ({ type, count }))
 }
 
 // Guest count by status (VIP / Returning / Corporate / New) — feeds the
