@@ -10,7 +10,6 @@ import {
   XCircle,
   Printer,
   Send,
-  ChevronRight,
   ChevronLeft,
   IdCard,
   Receipt,
@@ -21,16 +20,16 @@ import Modal from '../ui/Modal'
 import Button from '../ui/Button'
 import Badge from '../ui/Badge'
 
-function ActionRow({ icon: Icon, label, description, onClick, tone = 'default' }) {
+function ActionCard({ icon: Icon, label, description, onClick, tone = 'default' }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-surface-muted"
+      className="flex flex-col items-start gap-2 rounded-xl border border-navy-100 p-4 text-left transition-colors hover:border-gold hover:bg-gold-50 dark:border-navy-700 dark:hover:border-gold dark:hover:bg-gold-500/10"
     >
       <div
         className={[
-          'flex h-9 w-9 shrink-0 items-center justify-center rounded-full',
+          'flex h-9 w-9 items-center justify-center rounded-full',
           tone === 'danger'
             ? 'bg-status-urgent/10 text-status-urgent'
             : 'bg-gold-50 text-gold-600 dark:bg-gold-500/10 dark:text-gold-400',
@@ -38,11 +37,8 @@ function ActionRow({ icon: Icon, label, description, onClick, tone = 'default' }
       >
         <Icon size={16} strokeWidth={1.75} />
       </div>
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium text-navy-600 dark:text-navy-50">{label}</p>
-        {description && <p className="text-xs text-navy-300 dark:text-navy-500">{description}</p>}
-      </div>
-      <ChevronRight size={16} strokeWidth={1.75} className="shrink-0 text-navy-200 dark:text-navy-600" />
+      <p className="font-medium text-navy-600 dark:text-navy-50">{label}</p>
+      {description && <p className="text-xs text-navy-300 dark:text-navy-500">{description}</p>}
     </button>
   )
 }
@@ -60,7 +56,18 @@ function BackButton({ onClick, label = 'Back' }) {
   )
 }
 
-function GuestActionsModal({ reservation, guest, room, onClose, onEdit, onAddPayment, onAddBooking, onRoomMove, onVoid }) {
+function GuestActionsModal({
+  reservation,
+  guest,
+  room,
+  onClose,
+  onEdit,
+  onAddPayment,
+  onAddBooking,
+  onRoomMove,
+  onVoid,
+  onPrintInvoice,
+}) {
   const [view, setView] = useState('main')
   const [comingSoonLabel, setComingSoonLabel] = useState('')
 
@@ -73,7 +80,7 @@ function GuestActionsModal({ reservation, guest, room, onClose, onEdit, onAddPay
     <Modal
       title={`${guest?.name ?? 'Guest'} · Room ${room?.number ?? '—'}`}
       onClose={onClose}
-      maximizable={false}
+      defaultMaximized
       footer={
         <div className="flex justify-end">
           <Button variant="secondary" onClick={onClose}>Close</Button>
@@ -81,7 +88,7 @@ function GuestActionsModal({ reservation, guest, room, onClose, onEdit, onAddPay
       }
     >
       {view === 'main' && (
-        <div className="flex flex-col gap-3 text-sm">
+        <div className="flex flex-col gap-5 text-sm">
           <div className="flex items-center justify-between rounded-xl bg-surface-muted px-4 py-3">
             <div>
               <p className="font-medium text-navy-600 dark:text-navy-50">{guest?.name}</p>
@@ -90,17 +97,23 @@ function GuestActionsModal({ reservation, guest, room, onClose, onEdit, onAddPay
             <Badge status={reservation.status} />
           </div>
 
-          <div className="flex flex-col divide-y divide-navy-100 dark:divide-navy-700">
-            <ActionRow icon={Pencil} label="Edit Reservation" description="Guest, stay, room, and rate details" onClick={onEdit} />
-            <ActionRow icon={Wallet} label="Add Payment" description="Record a payment against this folio" onClick={onAddPayment} />
-            <ActionRow icon={CalendarPlus} label="Amend Stay" description="Change arrival, departure, or nights" onClick={onEdit} />
-            <ActionRow icon={CalendarPlus} label="Add New Booking" description="Create another reservation" onClick={onAddBooking} />
-            <ActionRow icon={ArrowLeftRight} label="Room Move" description="Move this guest to a different room" onClick={onRoomMove} />
-            <ActionRow icon={Repeat} label="Exchange Room" description="Swap rooms with another in-house guest" onClick={() => showComingSoon('Exchange Room')} />
-            <ActionRow icon={Ban} label="Stop Room Move" description="Cancel a pending room move" onClick={() => showComingSoon('Stop Room Move')} />
-            <ActionRow icon={ListChecks} label="Inclusions List" description="Packages and inclusions on this rate" onClick={() => showComingSoon('Inclusions List')} />
-            <ActionRow icon={XCircle} label="Void Reservation" description="Cancel this booking" onClick={() => setView('voidConfirm')} tone="danger" />
-            <ActionRow icon={Printer} label="Print & Send" description="Registration card, invoice, voucher" onClick={() => setView('printSend')} />
+          <div className="grid grid-cols-3 gap-3">
+            <ActionCard icon={Pencil} label="Edit Reservation" description="Guest, stay, room, and rate details" onClick={onEdit} />
+            <ActionCard icon={Wallet} label="Add Payment" description="Record a payment against this folio" onClick={onAddPayment} />
+            <ActionCard icon={CalendarPlus} label="Amend Stay" description="Change arrival, departure, or nights" onClick={onEdit} />
+            <ActionCard icon={CalendarPlus} label="Add New Booking" description="Create another reservation" onClick={onAddBooking} />
+            <ActionCard icon={ArrowLeftRight} label="Room Move" description="Move this guest to a different room" onClick={onRoomMove} />
+            <ActionCard icon={Printer} label="Print & Send" description="Registration card, invoice, voucher" onClick={() => setView('printSend')} />
+          </div>
+
+          <p className="text-xs font-semibold uppercase tracking-wide text-navy-300 dark:text-navy-500">
+            More Actions
+          </p>
+          <div className="grid grid-cols-3 gap-3">
+            <ActionCard icon={Repeat} label="Exchange Room" description="Swap rooms with another in-house guest" onClick={() => showComingSoon('Exchange Room')} />
+            <ActionCard icon={Ban} label="Stop Room Move" description="Cancel a pending room move" onClick={() => showComingSoon('Stop Room Move')} />
+            <ActionCard icon={ListChecks} label="Inclusions List" description="Packages and inclusions on this rate" onClick={() => showComingSoon('Inclusions List')} />
+            <ActionCard icon={XCircle} label="Void Reservation" description="Cancel this booking" onClick={() => setView('voidConfirm')} tone="danger" />
           </div>
         </div>
       )}
@@ -111,17 +124,17 @@ function GuestActionsModal({ reservation, guest, room, onClose, onEdit, onAddPay
 
           <div>
             <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-navy-300 dark:text-navy-500">Print</p>
-            <div className="flex flex-col divide-y divide-navy-100 rounded-xl border border-navy-100 dark:divide-navy-700 dark:border-navy-700">
-              <ActionRow icon={IdCard} label="Print Guest Registration Card" onClick={() => showComingSoon('Print Guest Registration Card')} />
-              <ActionRow icon={Receipt} label="Print Invoice" onClick={() => showComingSoon('Print Invoice')} />
-              <ActionRow icon={FileText} label="Print Reservation Voucher" onClick={() => showComingSoon('Print Reservation Voucher')} />
+            <div className="grid grid-cols-3 gap-3">
+              <ActionCard icon={IdCard} label="Print Guest Registration Card" onClick={() => showComingSoon('Print Guest Registration Card')} />
+              <ActionCard icon={Receipt} label="Print Invoice" onClick={onPrintInvoice} />
+              <ActionCard icon={FileText} label="Print Reservation Voucher" onClick={() => showComingSoon('Print Reservation Voucher')} />
             </div>
           </div>
 
           <div>
             <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-navy-300 dark:text-navy-500">Send</p>
-            <div className="flex flex-col divide-y divide-navy-100 rounded-xl border border-navy-100 dark:divide-navy-700 dark:border-navy-700">
-              <ActionRow
+            <div className="grid grid-cols-3 gap-3">
+              <ActionCard
                 icon={Mail}
                 label="Send Invoice"
                 description={guest?.email ? `Email to ${guest.email}` : 'Email the invoice to the guest'}
@@ -134,7 +147,7 @@ function GuestActionsModal({ reservation, guest, room, onClose, onEdit, onAddPay
 
       {view === 'comingSoon' && (
         <div className="flex flex-col gap-4 text-sm">
-          <BackButton onClick={() => setView(comingSoonLabel.startsWith('Print') || comingSoonLabel === 'Send Invoice' ? 'printSend' : 'main')} />
+          <BackButton onClick={() => setView('printSend')} />
           <div className="flex flex-col items-center gap-2 py-6 text-center">
             <Send size={22} strokeWidth={1.5} className="text-gold-500" />
             <p className="font-medium text-navy-600 dark:text-navy-50">{comingSoonLabel}</p>

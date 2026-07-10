@@ -65,3 +65,37 @@ body {
 *::after {
   transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
+
+/* Printing an invoice: hide everything on the page except the marked
+   printable area, and let it escape the modal's fixed/scroll clipping so
+   the full document lays out on the page rather than being cropped to the
+   on-screen viewport. */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .print-area,
+  .print-area * {
+    visibility: visible;
+  }
+  .print-area {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+    background: white !important;
+  }
+  /* Force plain black-on-white regardless of dark mode being active
+     on-screen — Tailwind's dark: utilities otherwise still apply and can
+     print near-invisible light text on this forced white background. */
+  .print-area,
+  .print-area * {
+    color: black !important;
+    background-color: transparent !important;
+    border-color: #d4d4d4 !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+}

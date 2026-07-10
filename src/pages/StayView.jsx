@@ -11,6 +11,7 @@ import MaintenanceModal from '../components/stayview/MaintenanceModal'
 import GuestActionsModal from '../components/stayview/GuestActionsModal'
 import RoomMoveModal from '../components/stayview/RoomMoveModal'
 import AddPaymentModal from '../components/stayview/AddPaymentModal'
+import InvoiceModal from '../components/stayview/InvoiceModal'
 import {
   getMonthlyMetrics,
   getRooms,
@@ -42,6 +43,7 @@ function StayView() {
   //  { type: 'guestActions', reservation }
   //  { type: 'roomMove', reservation }
   //  { type: 'addPayment', reservation }
+  //  { type: 'invoice', reservation }
 
   const metrics = useMemo(
     () => getMonthlyMetrics(cursor.year, cursor.month),
@@ -210,6 +212,7 @@ function StayView() {
           onAddBooking={() => setModal({ type: 'reservation', mode: 'create', prefill: {} })}
           onRoomMove={() => setModal({ type: 'roomMove', reservation: modal.reservation })}
           onVoid={handleVoidReservation}
+          onPrintInvoice={() => setModal({ type: 'invoice', reservation: modal.reservation })}
         />
       )}
 
@@ -229,6 +232,15 @@ function StayView() {
           guest={getGuestById(modal.reservation.guestId)}
           onClose={() => setModal(null)}
           onSubmit={handleAddPayment}
+        />
+      )}
+
+      {modal?.type === 'invoice' && (
+        <InvoiceModal
+          reservation={modal.reservation}
+          guest={getGuestById(modal.reservation.guestId)}
+          room={getRoomById(modal.reservation.roomId)}
+          onClose={() => setModal(null)}
         />
       )}
 
