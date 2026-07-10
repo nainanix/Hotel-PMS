@@ -129,7 +129,22 @@ export function hasReservationConflict(roomId, startDate, endDate, excludeMainte
 // Appends a new reservation to the in-memory store. Stands in for a POST to
 // a real reservations endpoint — callers should re-fetch (e.g. bump a state
 // key) after calling this so views relying on getStayViewData/etc. re-render.
-export function addReservation({ guestId, roomId, checkIn, checkOut, status, total }) {
+export function addReservation({
+  guestId,
+  roomId,
+  checkIn,
+  checkOut,
+  checkInTime = '',
+  checkOutTime = '',
+  status,
+  total,
+  numberOfRooms = 1,
+  businessSource = '',
+  roomType = '',
+  rateType = '',
+  adults = 1,
+  children = 0,
+}) {
   const reservation = {
     id: `res-${Date.now()}`,
     hotelId: 'hotel-1',
@@ -137,8 +152,16 @@ export function addReservation({ guestId, roomId, checkIn, checkOut, status, tot
     roomId,
     checkIn,
     checkOut,
+    checkInTime,
+    checkOutTime,
     status,
     total,
+    numberOfRooms,
+    businessSource,
+    roomType,
+    rateType,
+    adults,
+    children,
     createdAt: offsetISODate(0),
   }
   RESERVATIONS.push(reservation)

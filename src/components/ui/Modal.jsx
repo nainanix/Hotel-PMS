@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import WindowDots from './WindowDots'
 
-function Modal({ title, onClose, children, footer, maximizable = true }) {
+function Modal({ title, onClose, children, footer, maximizable = true, defaultMaximized = false }) {
   const [minimized, setMinimized] = useState(false)
-  const [maximized, setMaximized] = useState(false)
+  const [maximized, setMaximized] = useState(defaultMaximized)
 
   return (
     <div

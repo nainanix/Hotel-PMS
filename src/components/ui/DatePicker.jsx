@@ -55,7 +55,7 @@ function DatePicker({ value, onChange, className = '' }) {
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 top-full z-50 mt-2 w-64 overflow-hidden rounded-xl border border-navy-100/10 bg-surface p-3 shadow-2xl dark:border-white/10">
+          <div className="absolute right-0 top-full z-50 mt-2 w-64 max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-navy-100/10 bg-surface p-3 shadow-2xl dark:border-white/10">
             <div className="mb-2 flex items-center justify-between">
               <button
                 type="button"
