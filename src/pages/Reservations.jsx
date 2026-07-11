@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { CalendarCheck, BedDouble, IndianRupee, PieChart } from 'lucide-react'
 import StatCard from '../components/ui/StatCard'
 import StatDetailModal from '../components/ui/StatDetailModal'
@@ -42,6 +43,8 @@ const FILTERS = {
 }
 
 function Reservations() {
+  const location = useLocation()
+  const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState('all')
   const [query, setQuery] = useState('')
   const [view, setView] = useState('grid')
@@ -67,6 +70,18 @@ function Reservations() {
   )
   const guests = getGuests()
   const rooms = getRooms()
+
+  // Arriving from a notification like "New reservation" — jump straight to
+  // that reservation's actions menu instead of leaving the user to hunt for
+  // it in the list.
+  useEffect(() => {
+    const openReservationId = location.state?.openReservationId
+    if (!openReservationId) return
+    const reservation = reservations.find((r) => r.id === openReservationId)
+    if (reservation) setModal({ type: 'guestActions', reservation })
+    navigate(location.pathname, { replace: true, state: {} })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state])
 
   function refresh() {
     setRefreshKey((k) => k + 1)

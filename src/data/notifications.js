@@ -7,9 +7,11 @@ export const NOTIFICATIONS = [
     id: 'notif-1',
     hotelId: 'hotel-1',
     title: 'New reservation',
-    description: 'Jordan Ellis booked Room 105 for 3 nights.',
+    description: 'Jordan Ellis booked Room 105 for 4 nights.',
     date: offsetISODate(0),
     read: false,
+    type: 'reservation',
+    reservationId: 'res-1021',
   },
   {
     id: 'notif-2',
@@ -18,6 +20,8 @@ export const NOTIFICATIONS = [
     description: 'Room 101 has been cleaned and inspected.',
     date: offsetISODate(0),
     read: false,
+    type: 'housekeeping',
+    roomId: 'room-1',
   },
   {
     id: 'notif-3',
@@ -26,5 +30,7 @@ export const NOTIFICATIONS = [
     description: 'Room 103 remains under maintenance.',
     date: offsetISODate(-1),
     read: true,
+    type: 'housekeeping',
+    roomId: 'room-3',
   },
 ]

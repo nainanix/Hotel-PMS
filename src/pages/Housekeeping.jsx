@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { Sparkles, RefreshCw, AlertCircle } from 'lucide-react'
 import StatCard from '../components/ui/StatCard'
 import StatDetailModal from '../components/ui/StatDetailModal'
@@ -23,6 +24,8 @@ function nextStatus(status) {
 }
 
 function Housekeeping() {
+  const location = useLocation()
+  const highlightRoomId = location.state?.highlightRoomId
   const [rooms, setRooms] = useState(() => getHousekeepingStatus())
   const [detail, setDetail] = useState(null)
 
@@ -91,7 +94,14 @@ function Housekeeping() {
         </thead>
         <tbody>
           {rooms.map((room) => (
-            <tr key={room.id} className="hover:bg-surface-muted/60">
+            <tr
+              key={room.id}
+              className={
+                room.id === highlightRoomId
+                  ? 'bg-gold-50 hover:bg-gold-50 dark:bg-gold-500/10 dark:hover:bg-gold-500/10'
+                  : 'hover:bg-surface-muted/60'
+              }
+            >
               <Td className="font-medium text-navy-600 dark:text-navy-50">
                 {room.number}
                 <span className="ml-1 text-xs font-normal text-navy-300 dark:text-navy-500">({room.type})</span>
