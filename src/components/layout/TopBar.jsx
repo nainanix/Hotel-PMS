@@ -46,6 +46,10 @@ function TopBar({ onToggleSidebar }) {
   const title = PAGE_TITLES[pathname] ?? 'Hotel PMS'
   const { theme, toggleTheme } = useTheme()
   const [openMenu, setOpenMenu] = useState(null) // 'contact' | 'notifications' | 'user' | null
+  // Bumped whenever a notification is marked read to force this component to
+  // re-render — mutating the notifications array directly wouldn't otherwise
+  // trigger React to recompute unreadCount below.
+  const [, forceRefresh] = useState(0)
 
   const unreadCount = getNotifications().filter((n) => !n.read).length
 
@@ -91,7 +95,10 @@ function TopBar({ onToggleSidebar }) {
             )}
           </button>
           {openMenu === 'notifications' && (
-            <NotificationsPopover onClose={() => setOpenMenu(null)} />
+            <NotificationsPopover
+              onClose={() => setOpenMenu(null)}
+              onRead={() => forceRefresh((k) => k + 1)}
+            />
           )}
         </div>
 

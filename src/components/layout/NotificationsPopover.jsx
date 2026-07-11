@@ -1,13 +1,15 @@
 import { useNavigate } from 'react-router-dom'
-import { getNotifications } from '../../data/api'
+import { getNotifications, markNotificationRead } from '../../data/api'
 import { formatDateShort } from '../../utils/dates'
 import Popover from '../ui/Popover'
 
-function NotificationsPopover({ onClose }) {
+function NotificationsPopover({ onClose, onRead }) {
   const navigate = useNavigate()
   const notifications = getNotifications()
 
   function handleNotificationClick(n) {
+    markNotificationRead(n.id)
+    onRead?.()
     onClose()
     if (n.type === 'reservation' && n.reservationId) {
       navigate('/reservations', { state: { openReservationId: n.reservationId } })

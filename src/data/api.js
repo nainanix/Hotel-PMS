@@ -45,6 +45,13 @@ export function getNotifications() {
   return NOTIFICATIONS
 }
 
+export function markNotificationRead(id) {
+  const notification = NOTIFICATIONS.find((n) => n.id === id)
+  if (!notification) return null
+  notification.read = true
+  return notification
+}
+
 export function getRooms() {
   return ROOMS
 }
